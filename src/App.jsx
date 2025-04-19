@@ -1,4 +1,3 @@
-// src/App.jsx
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Footer from "./components/Layout/Footer/Footer";
@@ -7,6 +6,13 @@ import Login from "./pages/Home/Login/Login";
 import ProductCollection from "./pages/Home/ProductCollection";
 import ProductDetail from "./pages/Home/ProductDetail";
 import Cart from "./pages/Home/Cart";
+import Profile from "./pages/User/Profile";
+import Header from "./components/Layout/Header/Header";
+import SearchAi from "./components/Common/SearchAi";
+import Checkout from "./pages/Home/Checkout";
+import ThankYou from "./pages/Home/ThankYou";
+import AdminLayout from "./pages/Admin/AdminLayout";
+import AdminRoute from "./routes/AdminRoute";
 
 function App() {
   return (
@@ -16,6 +22,12 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/cart" element={<Cart />} />
+          <Route path="/account" element={<Profile />} />
+          <Route path="/account/password" element={<Profile />} />
+          <Route path="/account/order" element={<Profile />} />
+          <Route path="/search" element={<SearchAi />} />
+          <Route path="/thank-you" element={<ThankYou />} />
+          <Route path="/checkout" element={<Checkout />} />
           <Route path="/productscollection" element={<ProductCollection />} />
           <Route
             path="/productscollection/new"
@@ -30,6 +42,14 @@ function App() {
           <Route
             path="/productscollection/category/:categoryDescription"
             element={<ProductCollection filter="category" />}
+          />
+          <Route
+            path="/admin/dashboard"
+            element={
+              <AdminRoute>
+                <AdminLayout />
+              </AdminRoute>
+            }
           />
         </Routes>
         <Footer />

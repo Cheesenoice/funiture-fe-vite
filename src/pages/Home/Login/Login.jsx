@@ -1,21 +1,20 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
-import Cookies from "js-cookie";
 import Header from "../../../components/Layout/Header/Header";
 import Register from "./Register";
 import ForgotPassword from "./ForgotPassword";
+import AdminLogin from "./AdminLogin";
+import UserLogin from "./UserLogin";
 
 const Login = () => {
   const [activeTab, setActiveTab] = useState("login");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Handle Google login callback
+  // ✅ Handle Google login callback
   useEffect(() => {
     const handleGoogleCallback = async () => {
       const params = new URLSearchParams(location.search);
@@ -27,23 +26,9 @@ const Login = () => {
           );
 
           if (response.data.code === 200) {
-            const { token, message, cartId } = response.data;
-
-            // Store token
-            Cookies.set("token", token, { path: "/" });
-
-            // Store cartId if provided
-            if (cartId) {
-              Cookies.set("cartId", cartId, { path: "/" });
-            }
-
-            // Show success alert
-            alert(message); // "Đăng nhập thành công"
-
-            // Display success message in UI
+            const { message } = response.data;
+            alert(message);
             setSuccess(message);
-
-            // Redirect after a short delay
             setTimeout(() => {
               navigate("/dashboard");
             }, 2000);
@@ -53,7 +38,7 @@ const Login = () => {
             err.response?.data?.message ||
             "Đăng nhập Google thất bại. Vui lòng thử lại.";
           if (err.response?.data?.code === 404) {
-            alert(errorMessage); // Show error alert for 404
+            alert(errorMessage);
           }
           setError(errorMessage);
         }
@@ -62,44 +47,6 @@ const Login = () => {
 
     handleGoogleCallback();
   }, [location, navigate]);
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setError(""); // Reset error message
-
-    try {
-      // Make POST request to login API
-      const response = await axios.post(
-        "http://localhost:3000/api/v1/auth/login",
-        {
-          email: email,
-          passWord: password,
-        },
-        { withCredentials: true }
-      );
-
-      // Check if login was successful
-      if (response.data.code === 200) {
-        const { message } = response.data;
-
-        // API sets cartId in cookies automatically (HttpOnly), so no manual action needed for cartId
-
-        // Redirect to a protected route (e.g., dashboard or home)
-        navigate("/"); // Adjust the route as needed
-
-        // Optional: Display success message
-        alert(message); // "Đăng nhập thành công"
-      }
-      if (response.data.code === 404) {
-        alert(response.data.message); // "Đăng nhập thành công"
-      }
-    } catch (err) {
-      // Handle errors (e.g., wrong credentials, network issues)
-      setError(
-        err.response?.data?.message || "Đăng nhập thất bại. Vui lòng thử lại."
-      );
-    }
-  };
 
   const handleGoogleLogin = () => {
     window.location.href = "http://localhost:3000/api/v1/login/google";
@@ -124,6 +71,12 @@ const Login = () => {
                 Login
               </a>
               <a
+                className={`tab ${activeTab === "admin" ? "tab-active" : ""}`}
+                onClick={() => setActiveTab("admin")}
+              >
+                Admin
+              </a>
+              <a
                 className={`tab ${
                   activeTab === "register" ? "tab-active" : ""
                 }`}
@@ -139,10 +92,9 @@ const Login = () => {
               </a>
             </div>
 
-            {/* Login Form */}
+            {/* User Login */}
             {activeTab === "login" && (
-              <form className="space-y-6" onSubmit={handleLogin}>
-                {/* Success Alert */}
+              <>
                 {success && (
                   <div className="alert alert-success">
                     <svg
@@ -161,7 +113,7 @@ const Login = () => {
                     <span>{success}</span>
                   </div>
                 )}
-                {/* Error Alert */}
+
                 {error && (
                   <div className="alert alert-error">
                     <svg
@@ -180,52 +132,24 @@ const Login = () => {
                     <span>{error}</span>
                   </div>
                 )}
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text">Email</span>
-                  </label>
-                  <input
-                    type="email"
-                    placeholder="Enter your email"
-                    className="input input-bordered w-full"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
 
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text">Password</span>
-                  </label>
-                  <input
-                    type="password"
-                    placeholder="Enter your password"
-                    className="input input-bordered w-full"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <button type="submit" className="btn btn-primary w-full">
-                    Login
-                  </button>
-                </div>
-              </form>
+                <UserLogin setError={setError} setSuccess={setSuccess} />
+              </>
             )}
 
-            {/* Register Form */}
+            {/* Register */}
             {activeTab === "register" && <Register />}
 
-            {/* Forgot Password Form */}
+            {/* Forgot Password */}
             {activeTab === "forgot" && <ForgotPassword />}
+
+            {/* Admin Login */}
+            {activeTab === "admin" && <AdminLogin />}
 
             {/* Social Login */}
             <p className="text-center text-sm">Or continue with</p>
             <div className="flex flex-col gap-4">
-              {/* Google Button */}
+              {/* Google */}
               <button
                 onClick={handleGoogleLogin}
                 className="btn bg-white text-black border-[#e5e5e5] hover:bg-gray-100"
@@ -260,7 +184,7 @@ const Login = () => {
                 Login with Google
               </button>
 
-              {/* Facebook Button */}
+              {/* Facebook */}
               <button className="btn bg-[#1A77F2] text-white border-[#005fd8] hover:bg-[#1566d8]">
                 <svg
                   aria-label="Facebook logo"
@@ -280,7 +204,7 @@ const Login = () => {
           </div>
         </div>
 
-        {/* Right Section - Image (hidden on mobile) */}
+        {/* Right Section */}
         <div
           className="hidden md:block w-1/2 bg-cover bg-center rounded-2xl mb-3"
           style={{

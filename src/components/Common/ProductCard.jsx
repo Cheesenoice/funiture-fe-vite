@@ -32,7 +32,7 @@ function ProductCard({ product }) {
       ? Number(product.priceNew)
       : Number(product.price || 0);
   const formattedPrice = !isNaN(price)
-    ? `${price.toLocaleString("vi-VN")} VNĐ`
+    ? `${price.toLocaleString("vi-VN")} ₫`
     : "Giá không khả dụng";
 
   const originalPrice =
@@ -41,7 +41,7 @@ function ProductCard({ product }) {
       : null;
   const formattedOriginalPrice =
     originalPrice && !isNaN(originalPrice)
-      ? `${originalPrice.toLocaleString("vi-VN")} VNĐ`
+      ? `${originalPrice.toLocaleString("vi-VN")} ₫`
       : null;
 
   const discount = product.discountPercentage
@@ -49,7 +49,7 @@ function ProductCard({ product }) {
     : null;
 
   return (
-    <div className="p-4">
+    <div className="p-4 ">
       <div className="relative">
         <a href={`/productdetail/${product.slug}`} className="block">
           <img
@@ -75,16 +75,17 @@ function ProductCard({ product }) {
           </button>
         </div>
       </div>
-      <div className="mt-4 flex justify-between items-start">
-        <div>
-          <h3 className="text-sm text-gray-700 line-clamp-2 max-w-[200px] h-10">
+      <div className="mt-4 grid grid-rows-2">
+        <div className="flex items-center justify-center h-12">
+          <h3 className="text-base text-gray-700 line-clamp-2 max-w-[200px] text-center w-full">
             <a href={`/productdetail/${product.slug}`}>
               {product.title || product.name}
             </a>
           </h3>
         </div>
-        <div className="text-right">
+        <div className="flex items-center justify-center gap-5">
           <p className="text-sm font-bold text-primary">{formattedPrice}</p>
+
           {formattedOriginalPrice && (
             <p className="text-xs text-gray-500 line-through">
               {formattedOriginalPrice}

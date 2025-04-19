@@ -3,16 +3,14 @@ import Cookies from "js-cookie";
 import axios from "axios";
 
 function AddToCartButton({ productId, disabled }) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [showModal, setShowModal] = useState(false);
   const [quantity, setQuantity] = useState(1);
-  const [toast, setToast] = useState(null); // { type: 'success' | 'error', message: string }
-
+  const [isLoading, setIsLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
   const cartId = Cookies.get("cartId");
 
   const handleAddToCart = async () => {
     if (!cartId) {
-      setToast({ type: "error", message: "Bạn phải đăng nhập trước" });
+      alert("Bạn phải đăng nhập trước");
       return;
     }
 
@@ -25,73 +23,63 @@ function AddToCartButton({ productId, disabled }) {
       );
 
       if (response.data.status === "success") {
-        setToast({ type: "success", message: "Thêm vào giỏ hàng thành công!" });
-        setShowModal(false);
+        setSuccess(true);
+        setQuantity(1);
+
+        const res = await axios.get("http://localhost:3000/api/v1/cart/", {
+          withCredentials: true,
+        });
+        const items = res.data?.data?.items || [];
+        localStorage.setItem("cartCount", items.length);
+        window.dispatchEvent(new Event("storage"));
+
+        // Reset success state after a short delay
+        setTimeout(() => {
+          setSuccess(false);
+        }, 50);
       } else {
         throw new Error(response.data.message || "Không thể thêm vào giỏ hàng");
       }
     } catch (error) {
-      setToast({
-        type: "error",
-        message:
-          "Lỗi khi thêm vào giỏ hàng: " +
-          (error.response?.data?.message || error.message),
-      });
+      alert(
+        "Lỗi khi thêm vào giỏ hàng: " +
+          (error.response?.data?.message || error.message)
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Ẩn toast sau 3 giây
-  useEffect(() => {
-    if (toast) {
-      const timer = setTimeout(() => setToast(null), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [toast]);
-
   return (
-    <>
-      {/* Toast */}
-      {toast && (
-        <div className={`toast toast-top toast-center z-50`}>
-          <div
-            className={`alert shadow-lg w-80 ${
-              toast.type === "success"
-                ? "bg-green-500 text-white"
-                : toast.type === "error"
-                ? "bg-red-500 text-white"
-                : toast.type === "info"
-                ? "bg-blue-500 text-white"
-                : "bg-yellow-500 text-white"
-            }`}
-          >
-            <span>{toast.message}</span>
-          </div>
+    <div>
+      {/* Dropdown Trigger */}
+      <div className="dropdown dropdown-top w-full">
+        <div
+          tabIndex={0}
+          role="button"
+          className={`btn btn-outline btn-primary btn-sm w-full ${
+            disabled ? "btn-disabled" : ""
+          } ${success ? "btn-success" : ""}`}
+          // Removed the isLoading from the disabled condition
+          disabled={disabled}
+        >
+          {success ? "Thêm thành công!" : "Thêm vào giỏ"}
         </div>
-      )}
 
-      {/* Nút mở modal */}
-      <button
-        className={`btn btn-outline btn-primary btn-sm w-full mt-2 ${
-          disabled ? "btn-disabled" : ""
-        }`}
-        onClick={() => setShowModal(true)}
-        disabled={disabled}
-      >
-        Thêm vào giỏ
-      </button>
-
-      {/* Modal chọn số lượng */}
-      {showModal && (
-        <dialog id="addToCartModal" className="modal modal-open">
-          <div className="modal-box">
-            <h3 className="font-bold text-lg mb-4">Chọn số lượng</h3>
-
-            <div className="flex items-center justify-center gap-4 mb-6">
+        {/* Dropdown Content */}
+        {!success && (
+          <div
+            tabIndex={0}
+            className="dropdown-content z-30 bg-base-100 rounded-box w-full shadow p-4"
+          >
+            <h3 className="font-semibold text-sm mb-2 text-center">
+              Chọn số lượng
+            </h3>
+            <div className="flex items-center justify-center gap-4 mb-4">
               <button
                 className="btn btn-sm btn-outline"
                 onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                disabled={isLoading}
               >
                 -
               </button>
@@ -99,32 +87,26 @@ function AddToCartButton({ productId, disabled }) {
               <button
                 className="btn btn-sm btn-outline"
                 onClick={() => setQuantity((q) => q + 1)}
+                disabled={isLoading}
               >
                 +
               </button>
             </div>
 
-            <div className="modal-action flex justify-end gap-3">
-              <button
-                className="btn btn-ghost"
-                onClick={() => {
-                  setShowModal(false);
-                  setQuantity(1);
-                }}
-              >
-                Hủy
-              </button>
-              <button
-                className={`btn btn-primary ${isLoading ? "loading" : ""}`}
-                onClick={handleAddToCart}
-              >
-                Xác nhận
-              </button>
-            </div>
+            <button
+              className={`btn btn-primary btn-sm w-full ${
+                isLoading ? "loading" : ""
+              }`}
+              onClick={handleAddToCart}
+              // Removed the isLoading from the disabled condition
+              // disabled={isLoading}
+            >
+              Xác nhận
+            </button>
           </div>
-        </dialog>
-      )}
-    </>
+        )}
+      </div>
+    </div>
   );
 }
 

@@ -5,7 +5,7 @@ const Collection = () => {
     <div className="bg-white py-5">
       <div className="container mx-auto py-10 px-4">
         {/* Grid Layout for Images */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {/* Top Row: 3 Images */}
           <div className="relative">
             <a href="/sofa" className="block">
@@ -37,7 +37,7 @@ const Collection = () => {
             </a>
           </div>
 
-          <div className="relative">
+          <div className="relative col-span-2 md:col-span-1 ">
             <a href="/bed" className="block">
               {/* Image 3 (Bed) */}
               <img

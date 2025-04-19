@@ -1,17 +1,23 @@
-// src/components/Home.jsx
 import React from "react";
 import Header from "../../components/Layout/Header/Header";
 import ProductCarousel from "../../components/Sections/ProductCarousel";
 import ProductList from "../../components/Sections/ProductList";
 import Collection from "../../components/Sections/Collection";
+import SearchAiModal from "../../components/Common/SearchAi";
 
 function Home() {
   return (
     <div className="min-h-screen">
-      <Header />
+      <div className="sticky top-0 z-50 bg-white shadow-md">
+        <Header />
+      </div>
       <Collection />
       <ProductCarousel />
       <ProductList />
+      {/* Chat Button and Modal */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <SearchAiModal />
+      </div>
     </div>
   );
 }
