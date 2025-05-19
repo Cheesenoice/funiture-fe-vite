@@ -233,7 +233,7 @@ const AdminInfo = () => {
                     </>
                   ) : (
                     <div className="flex justify-between w-full">
-                      <a href="/dashboard">
+                      <a href="/admin/dashboard">
                         <button className="btn btn-info">Đến Dashboard</button>
                       </a>
                       <button

@@ -1,60 +1,108 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { ShoppingBag } from "lucide-react";
+import { ShoppingBag, Plus } from "lucide-react";
 import Header from "../../components/Layout/Header/Header";
+import AddAddressForm from "../../components/Common/AddAddressForm";
 
 function Checkout() {
   const [cart, setCart] = useState(null);
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
+  const [toast, setToast] = useState({ message: "", type: "", visible: false });
+  const [showAddAddress, setShowAddAddress] = useState(false);
+  const [prefetchedCarts, setPrefetchedCarts] = useState({});
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
-    address: "",
+    addressId: "",
     paymentMethod: "cod",
   });
 
+  const showToast = (message, type) => {
+    setToast({ message, type, visible: true });
+    setTimeout(() => setToast({ message: "", type: "", visible: false }), 3000);
+  };
+
   useEffect(() => {
-    const fetchCheckout = async () => {
+    const fetchData = async () => {
       setLoading(true);
       try {
-        const user = JSON.parse(localStorage.getItem("user"));
-        const token = user?.accessToken;
+        const localUserData = JSON.parse(localStorage.getItem("user"));
+        const token = localUserData?.accessToken;
 
         if (!token) {
           throw new Error("Không tìm thấy token");
         }
 
-        const response = await axios.get(
-          "http://localhost:3000/api/v1/checkout",
+        // Fetch user
+        const userResponse = await axios.get(
+          "http://localhost:3000/api/v1/my-accountClient",
           {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+            headers: { Authorization: `Bearer ${token}` },
             withCredentials: true,
           }
         );
 
-        if (response.data.status === "success") {
-          setCart(response.data.data);
-        } else if (
-          response.data.status === "error" &&
-          response.data.message === "Cart is empty or not found"
-        ) {
-          setCart({ items: [] }); // Set empty cart to trigger empty cart UI
-        } else {
-          setError("Không thể lấy thông tin đơn hàng");
-        }
+        const responseUserData = userResponse.data.data;
+        setUser(responseUserData);
+        const defaultAddress =
+          responseUserData.address?.find((addr) => addr.isDefault) ||
+          responseUserData.address?.[0];
+
+        // Fetch cart with default address
+        const cartResponse = await axios.get(
+          `http://localhost:3000/api/v1/checkout/${defaultAddress?._id || ""}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            withCredentials: true,
+          }
+        );
+
+        setCart(
+          cartResponse.data.status === "success"
+            ? cartResponse.data.data
+            : { items: [], subtotal: 0, shippingFee: 0, totalPrice: 0 }
+        );
+
+        setFormData({
+          name: responseUserData.fullName || "",
+          email: responseUserData.email || "",
+          phone: responseUserData.phoneNumber || "",
+          addressId: defaultAddress?._id || "",
+          paymentMethod: "cod",
+        });
+
+        // Prefetch cart data for all addresses
+        const prefetchPromises = responseUserData.address
+          .filter((addr) => addr._id !== defaultAddress?._id)
+          .map((addr) =>
+            axios
+              .get(`http://localhost:3000/api/v1/checkout/${addr._id}`, {
+                headers: { Authorization: `Bearer ${token}` },
+                withCredentials: true,
+              })
+              .then((res) => ({ addressId: addr._id, data: res.data.data }))
+          );
+
+        const prefetchedResults = await Promise.allSettled(prefetchPromises);
+        const newPrefetchedCarts = {};
+        prefetchedResults.forEach((result) => {
+          if (result.status === "fulfilled") {
+            newPrefetchedCarts[result.value.addressId] = result.value.data;
+          }
+        });
+        setPrefetchedCarts(newPrefetchedCarts);
       } catch (err) {
-        setError(err.message || "Lỗi khi lấy thông tin đơn hàng");
+        showToast(err.message || "Lỗi khi tải dữ liệu", "error");
+        setCart({ items: [], subtotal: 0, shippingFee: 0, totalPrice: 0 });
       } finally {
         setLoading(false);
       }
     };
 
-    fetchCheckout();
+    fetchData();
   }, []);
 
   const handleInputChange = (e) => {
@@ -62,24 +110,101 @@ function Checkout() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleSelectAddress = async (address) => {
+    try {
+      const localUserData = JSON.parse(localStorage.getItem("user"));
+      const token = localUserData?.accessToken;
+
+      // Check if cart data is prefetched
+      if (prefetchedCarts[address._id]) {
+        setCart(prefetchedCarts[address._id]);
+        setFormData((prev) => ({ ...prev, addressId: address._id }));
+        showToast("Cập nhật địa chỉ thành công!", "success");
+        return;
+      }
+
+      // Fetch cart with selected address if not prefetched
+      const cartResponse = await axios.get(
+        `http://localhost:3000/api/v1/checkout/${address._id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          withCredentials: true,
+        }
+      );
+
+      setCart(cartResponse.data.data);
+      setPrefetchedCarts((prev) => ({
+        ...prev,
+        [address._id]: cartResponse.data.data,
+      }));
+      setFormData((prev) => ({ ...prev, addressId: address._id }));
+      showToast("Cập nhật địa chỉ thành công!", "success");
+    } catch (err) {
+      showToast(err.message || "Lỗi khi cập nhật địa chỉ", "error");
+    }
+  };
+
+  const handleAddAddress = async (newAddress) => {
+    try {
+      const localUserData = JSON.parse(localStorage.getItem("user"));
+      const token = localUserData?.accessToken;
+
+      const updatedAddresses = [...(user?.address || []), newAddress];
+      const payload = {
+        ...user,
+        address: updatedAddresses,
+      };
+
+      const response = await axios.patch(
+        "http://localhost:3000/api/v1/my-accountClient/edit",
+        payload,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          withCredentials: true,
+        }
+      );
+
+      setUser(response.data.data);
+      setFormData((prev) => ({ ...prev, addressId: newAddress._id }));
+      setShowAddAddress(false);
+      showToast("Thêm địa chỉ thành công!", "success");
+
+      // Fetch cart with new address
+      const cartResponse = await axios.get(
+        `http://localhost:3000/api/v1/checkout/${newAddress._id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          withCredentials: true,
+        }
+      );
+      setCart(cartResponse.data.data);
+      setPrefetchedCarts((prev) => ({
+        ...prev,
+        [newAddress._id]: cartResponse.data.data,
+      }));
+    } catch (err) {
+      showToast(err.message || "Lỗi khi thêm địa chỉ", "error");
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const user = JSON.parse(localStorage.getItem("user"));
-      const token = user?.accessToken;
-
-      if (!token) {
-        throw new Error("Không tìm thấy token");
-      }
+      const localUserData = JSON.parse(localStorage.getItem("user"));
+      const token = localUserData?.accessToken;
 
       const response = await axios.post(
         "http://localhost:3000/api/v1/checkout/order",
-        formData,
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          name: formData.name,
+          email: formData.email,
+          addressId: formData.addressId,
+          phone: formData.phone,
+          paymentMethod: formData.paymentMethod,
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
           withCredentials: true,
         }
       );
@@ -88,24 +213,23 @@ function Checkout() {
         if (formData.paymentMethod === "momo") {
           window.location.href = response.data.payUrl;
         } else {
-          alert("Đặt hàng COD thành công!");
-          window.location.href = "/order-confirmation";
+          showToast("Đặt hàng COD thành công!", "success");
+          window.location.href = "/thank-you";
         }
       } else {
-        alert("Không thể xử lý đơn hàng");
+        throw new Error("Không thể xử lý đơn hàng");
       }
     } catch (err) {
-      alert(err.message || "Lỗi khi xử lý đơn hàng");
+      showToast(err.message || "Lỗi khi xử lý đơn hàng", "error");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const getValidImage = (image) => {
-    return image && image !== "null" && image !== "undefined"
+  const getValidImage = (image) =>
+    image && image !== "null" && image !== "undefined"
       ? image
       : "/collection/collection-chair.jpg";
-  };
 
   if (loading) {
     return (
@@ -115,7 +239,7 @@ function Checkout() {
     );
   }
 
-  if (error) {
+  if (!cart || cart.items.length === 0) {
     return (
       <div>
         <Header />
@@ -134,9 +258,19 @@ function Checkout() {
     <div>
       <Header />
       <div className="max-w-6xl mx-auto p-4 sm:p-6">
+        {toast.visible && (
+          <div className="toast toast-top toast-end">
+            <div
+              className={`alert ${
+                toast.type === "success" ? "alert-success" : "alert-error"
+              }`}
+            >
+              <span>{toast.message}</span>
+            </div>
+          </div>
+        )}
         <h2 className="text-2xl font-bold mb-6">Thanh toán</h2>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Form thông tin thanh toán */}
           <div className="lg:col-span-2">
             <div className="card bg-base-100 shadow-md p-4 sm:p-6">
               <h3 className="text-lg font-semibold mb-4">
@@ -184,15 +318,54 @@ function Checkout() {
                 </div>
                 <div className="form-control">
                   <label className="label">
-                    <span className="label-text">Địa chỉ giao hàng</span>
+                    <span className="label-text">Chọn địa chỉ giao hàng</span>
                   </label>
-                  <textarea
-                    name="address"
-                    value={formData.address}
-                    onChange={handleInputChange}
-                    className="textarea textarea-bordered w-full"
-                    required
-                  ></textarea>
+                  {user?.address?.length > 0 ? (
+                    <div className="space-y-2">
+                      {user.address.map((addr) => (
+                        <label
+                          key={addr._id}
+                          className="flex items-center gap-2 cursor-pointer"
+                        >
+                          <input
+                            type="radio"
+                            name="selectedAddress"
+                            className="radio radio-primary"
+                            onChange={() => handleSelectAddress(addr)}
+                            checked={formData.addressId === addr._id}
+                          />
+                          <span>
+                            {addr.fullAddress}
+                            {addr.isDefault && (
+                              <span className="badge badge-success ml-2">
+                                Mặc định
+                              </span>
+                            )}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500">
+                      Chưa có địa chỉ nào được thêm.
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowAddAddress(!showAddAddress)}
+                    className="btn btn-outline btn-primary mt-2"
+                  >
+                    <Plus size={20} className="mr-2" />
+                    {showAddAddress
+                      ? "Ẩn form thêm địa chỉ"
+                      : "Thêm địa chỉ mới"}
+                  </button>
+                  {showAddAddress && (
+                    <AddAddressForm
+                      onAddAddress={handleAddAddress}
+                      showToast={showToast}
+                    />
+                  )}
                 </div>
                 <div className="form-control">
                   <label className="label">
@@ -228,7 +401,7 @@ function Checkout() {
                 <button
                   type="submit"
                   className="btn btn-primary w-full mt-4"
-                  disabled={submitting}
+                  disabled={submitting || !formData.addressId}
                 >
                   {submitting ? (
                     <span className="flex items-center gap-2">
@@ -242,8 +415,6 @@ function Checkout() {
               </form>
             </div>
           </div>
-
-          {/* Tóm tắt đơn hàng */}
           <div>
             <div className="card bg-base-100 shadow-md p-4 sm:p-6 sticky top-4">
               <h2 className="text-xl font-bold mb-4">Tóm tắt đơn hàng</h2>
@@ -277,11 +448,11 @@ function Checkout() {
                 <div className="border-t pt-3">
                   <div className="flex justify-between">
                     <span>Tạm tính</span>
-                    <span>{cart.totalPrice.toLocaleString("vi-VN")}₫</span>
+                    <span>{cart.subtotal.toLocaleString("vi-VN")}₫</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Phí vận chuyển</span>
-                    <span className="text-success">Miễn phí</span>
+                    <span>{cart.shippingFee.toLocaleString("vi-VN")}₫</span>
                   </div>
                   <div className="border-t pt-3 flex justify-between font-semibold text-lg">
                     <span>Tổng cộng</span>

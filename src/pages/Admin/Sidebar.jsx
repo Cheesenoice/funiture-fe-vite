@@ -1,24 +1,46 @@
-// src/components/Sidebar.jsx
 import React, { useState } from "react";
-import { Menu, X, Home, Users, Settings, LogOut } from "lucide-react";
+import {
+  Menu,
+  X,
+  Home,
+  Users,
+  Package,
+  Folder,
+  LogOut,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 const Sidebar = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isProductsOpen, setIsProductsOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
   const menuItems = [
-    { icon: Home, label: "Dashboard", path: "/admin" },
+    { icon: Home, label: "Dashboard", path: "/admin/dashboard" },
+    {
+      icon: Package,
+      label: "Sản phẩm",
+      path: "/admin/products",
+      children: [
+        { label: "Product List", path: "/admin/products" },
+        { label: "Add Product", path: "/admin/products/add" },
+      ],
+    },
     { icon: Users, label: "Users", path: "/admin/users" },
-    { icon: Users, label: "Sản phẩm", path: "/admin/users" },
-    { icon: Users, label: "Danh mục", path: "/admin/users" },
+    { icon: Folder, label: "Danh mục", path: "/admin/categories" },
+    { icon: Package, label: "Đơn hàng", path: "/admin/orders" },
   ];
 
-  const navigate = useNavigate();
   const handleLogout = () => {
     localStorage.removeItem("user");
-    localStorage.removeItem("access_token");
     navigate("/");
+  };
+
+  const toggleProductsSubMenu = () => {
+    setIsProductsOpen(!isProductsOpen);
   };
 
   return (
@@ -48,21 +70,64 @@ const Sidebar = () => {
           {/* Menu Items */}
           <nav className="flex-1 p-4 space-y-2">
             {menuItems.map((item, index) => {
-              const isActive = location.pathname === item.path;
-              return (
-                <Link
-                  key={index}
-                  to={item.path}
-                  className={`flex items-center gap-3 p-3 rounded-xl font-medium transition-all duration-200 ${
-                    isActive
-                      ? "bg-primary text-white shadow-md"
-                      : "hover:bg-primary/10 text-base-content"
-                  }`}
-                >
-                  <item.icon size={20} />
-                  <span>{item.label}</span>
-                </Link>
-              );
+              if (item.children) {
+                const isParentActive = location.pathname.startsWith(item.path);
+                return (
+                  <div key={index}>
+                    <button
+                      onClick={toggleProductsSubMenu}
+                      className={`flex items-center justify-between w-full gap-3 p-3 rounded-xl font-medium transition-all duration-200 ${
+                        isParentActive
+                          ? "bg-primary text-white shadow-md"
+                          : "hover:bg-primary/10 text-base-content"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <item.icon size={20} />
+                        <span>{item.label}</span>
+                      </div>
+                      {isProductsOpen ? (
+                        <ChevronUp size={20} />
+                      ) : (
+                        <ChevronDown size={20} />
+                      )}
+                    </button>
+                    {isProductsOpen && (
+                      <div className="ml-6 mt-2 space-y-2">
+                        {item.children.map((child, childIndex) => (
+                          <Link
+                            key={childIndex}
+                            to={child.path}
+                            className={`flex items-center gap-3 p-3 rounded-xl font-medium transition-all duration-200 ${
+                              location.pathname === child.path
+                                ? "bg-primary text-white shadow-md"
+                                : "hover:bg-primary/10 text-base-content"
+                            }`}
+                          >
+                            <span>{child.label}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              } else {
+                const isActive = location.pathname === item.path;
+                return (
+                  <Link
+                    key={index}
+                    to={item.path}
+                    className={`flex items-center gap-3 p-3 rounded-xl font-medium transition-all duration-200 ${
+                      isActive
+                        ? "bg-primary text-white shadow-md"
+                        : "hover:bg-primary/10 text-base-content"
+                    }`}
+                  >
+                    <item.icon size={20} />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              }
             })}
           </nav>
 

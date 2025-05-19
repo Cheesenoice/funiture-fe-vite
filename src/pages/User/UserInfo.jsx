@@ -3,7 +3,8 @@ import axios from "../../api/config/axiosConfig";
 import Cookies from "js-cookie";
 import Header from "../../components/Layout/Header/Header";
 import MyOrder from "./MyOrder";
-import { User, Lock, ShoppingBag } from "lucide-react";
+import MyAddress from "./MyAddress";
+import { User, Lock, ShoppingBag, MapPin } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 const UserInfo = () => {
@@ -30,6 +31,7 @@ const UserInfo = () => {
   const getActiveTab = () => {
     if (location.pathname.includes("/account/order")) return "orders";
     if (location.pathname.includes("/account/password")) return "password";
+    if (location.pathname.includes("/account/address")) return "address";
     return "info";
   };
 
@@ -74,7 +76,6 @@ const UserInfo = () => {
   }, []);
 
   useEffect(() => {
-    // Update activeTab when URL changes
     setActiveTab(getActiveTab());
   }, [location.pathname]);
 
@@ -119,6 +120,125 @@ const UserInfo = () => {
       });
   };
 
+  const handleAddAddress = (newAddress) => {
+    const token = getAuthToken();
+    const updatedAddresses = user.address
+      ? [...user.address, newAddress]
+      : [newAddress];
+
+    const payload = {
+      ...formData,
+      address: updatedAddresses,
+      passWord: "",
+      position: String(formData.position || "1"),
+      status: formData.status || "active",
+    };
+
+    axios
+      .patch("/my-accountClient/edit", payload, {
+        headers: { Authorization: token },
+      })
+      .then((res) => {
+        showToast("Thêm địa chỉ thành công!", "success");
+        setUser(res.data.data);
+      })
+      .catch((err) => {
+        const msg = err?.response?.data?.message || "Thêm địa chỉ thất bại.";
+        showToast(msg, "error");
+        console.error(err);
+      });
+  };
+
+  const handleUpdateAddress = (updatedAddress) => {
+    const token = getAuthToken();
+    const updatedAddresses = user.address.map((addr) =>
+      addr._id === updatedAddress._id ? updatedAddress : addr
+    );
+
+    const payload = {
+      ...formData,
+      address: updatedAddresses,
+      passWord: "",
+      position: String(formData.position || "1"),
+      status: formData.status || "active",
+    };
+
+    axios
+      .patch("/my-accountClient/edit", payload, {
+        headers: { Authorization: token },
+      })
+      .then((res) => {
+        showToast("Cập nhật địa chỉ thành công!", "success");
+        setUser(res.data.data);
+      })
+      .catch((err) => {
+        const msg =
+          err?.response?.data?.message || "Cập nhật địa chỉ thất bại.";
+        showToast(msg, "error");
+        console.error(err);
+      });
+  };
+
+  const handleDeleteAddress = (addressId) => {
+    const token = getAuthToken();
+    const updatedAddresses = user.address.filter(
+      (addr) => addr._id !== addressId
+    );
+
+    const payload = {
+      ...formData,
+      address: updatedAddresses,
+      passWord: "",
+      position: String(formData.position || "1"),
+      status: formData.status || "active",
+    };
+
+    axios
+      .patch("/my-accountClient/edit", payload, {
+        headers: { Authorization: token },
+      })
+      .then((res) => {
+        showToast("Xóa địa chỉ thành công!", "success");
+        setUser(res.data.data);
+      })
+      .catch((err) => {
+        const msg = err?.response?.data?.message || "Xóa địa chỉ thất bại.";
+        showToast(msg, "error");
+        console.error(err);
+      });
+  };
+
+  const handleSetDefaultAddress = (addressId) => {
+    const token = getAuthToken();
+    const updatedAddresses = user.address.map((addr) => ({
+      ...addr,
+      isDefault: addr._id === addressId,
+    }));
+
+    const payload = {
+      ...formData,
+      address: updatedAddresses,
+      passWord: "",
+      position: String(formData.position || "1"),
+      status: formData.status || "active",
+    };
+
+    axios
+      .patch("/my-accountClient/edit", payload, {
+        headers: { Authorization: token },
+      })
+      .then((res) => {
+        showToast("Đặt địa chỉ mặc định thành công!", "success");
+        setUser(res.data.data);
+      })
+      .catch((err) => {
+        const msg =
+          err?.response?.data?.message || "Đặt địa chỉ mặc định thất bại.";
+        showToast(msg, "error");
+        console.error(err);
+      });
+  };
+
   const handleChangePassword = () => {
     const { newPassword, confirmPassword } = passwordData;
 
@@ -158,6 +278,7 @@ const UserInfo = () => {
     if (tab === "info") navigate("/account");
     else if (tab === "password") navigate("/account/password");
     else if (tab === "orders") navigate("/account/order");
+    else if (tab === "address") navigate("/account/address");
   };
 
   if (!user)
@@ -231,6 +352,17 @@ const UserInfo = () => {
                   >
                     <ShoppingBag size={20} />
                     Đơn hàng của tôi
+                  </a>
+                </li>
+                <li>
+                  <a
+                    className={`flex items-center gap-2 ${
+                      activeTab === "address" ? "active" : ""
+                    }`}
+                    onClick={() => handleTabChange("address")}
+                  >
+                    <MapPin size={20} />
+                    Địa chỉ của tôi
                   </a>
                 </li>
               </ul>
@@ -318,6 +450,15 @@ const UserInfo = () => {
                     </button>
                   </div>
                 </div>
+              ) : activeTab === "address" ? (
+                <MyAddress
+                  addresses={user.address}
+                  onAddAddress={handleAddAddress}
+                  onUpdateAddress={handleUpdateAddress}
+                  onDeleteAddress={handleDeleteAddress}
+                  onSetDefaultAddress={handleSetDefaultAddress}
+                  showToast={showToast}
+                />
               ) : (
                 <MyOrder />
               )}

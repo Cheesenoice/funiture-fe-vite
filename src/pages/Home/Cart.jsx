@@ -214,7 +214,7 @@ function Cart() {
                 </div>
                 <div className="flex justify-between">
                   <span>Phí vận chuyển</span>
-                  <span className="text-success">Miễn phí</span>
+                  <span className="text-success">Chưa Tính Toán</span>
                 </div>
                 <div className="border-t pt-3 flex justify-between font-semibold text-lg">
                   <span>Tổng cộng</span>
