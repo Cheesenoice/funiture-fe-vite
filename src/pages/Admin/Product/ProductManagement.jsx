@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { FaEdit, FaTrashAlt, FaPlus } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import { fetchCategories } from "./fetchCategories"; // Import the new utility
 
 const formatCurrency = (amount) => {
   if (typeof amount !== "number" && typeof amount !== "string") return "N/A";
@@ -10,24 +11,6 @@ const formatCurrency = (amount) => {
     style: "currency",
     currency: "VND",
   });
-};
-
-const flattenCategories = (categories) => {
-  if (!Array.isArray(categories)) return [];
-  const flatList = [];
-  const processCategory = (category, parentName = null) => {
-    const displayName = parentName
-      ? `${parentName} > ${category.name}`
-      : category.name;
-    flatList.push({ id: category.category_id, name: displayName });
-    if (category.subcategories && category.subcategories.length > 0) {
-      category.subcategories.forEach((sub) =>
-        processCategory(sub, category.name)
-      );
-    }
-  };
-  categories.forEach((cat) => processCategory(cat));
-  return flatList;
 };
 
 const ProductManagement = () => {
@@ -40,42 +23,22 @@ const ProductManagement = () => {
   const [selectedProductIds, setSelectedProductIds] = useState([]);
   const [confirmStatusChange, setConfirmStatusChange] = useState(null);
   const [confirmBulkStatus, setConfirmBulkStatus] = useState(null);
-  // New state for delete confirmation modal
   const [productToDeleteId, setProductToDeleteId] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
 
   const navigate = useNavigate();
 
-  const fetchCategories = useCallback(() => {
+  const fetchCategoriesData = useCallback(async () => {
     setCategoryError(null);
+    setLoading(true);
     try {
-      const cachedCategoriesString = sessionStorage.getItem("categories_cache");
-      if (cachedCategoriesString) {
-        const parsedData = JSON.parse(cachedCategoriesString);
-        let categoriesArray = null;
-        if (Array.isArray(parsedData)) {
-          categoriesArray = parsedData;
-        } else if (
-          parsedData &&
-          typeof parsedData === "object" &&
-          Array.isArray(parsedData.data)
-        ) {
-          categoriesArray = parsedData.data;
-        }
-        if (categoriesArray) {
-          const flattened = flattenCategories(categoriesArray);
-          setAllCategories(flattened);
-        } else {
-          setCategoryError("Định dạng dữ liệu danh mục không hợp lệ.");
-          setAllCategories([]);
-        }
-      } else {
-        setCategoryError("Không tìm thấy dữ liệu danh mục trong cache.");
-        setAllCategories([]);
-      }
+      const categories = await fetchCategories();
+      setAllCategories(categories);
     } catch (e) {
-      setCategoryError("Lỗi khi tải danh mục từ cache.");
+      setCategoryError(`Lỗi khi tải danh mục: ${e.message}`);
       setAllCategories([]);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -83,8 +46,16 @@ const ProductManagement = () => {
     setLoading(true);
     setError(null);
     try {
+      const userData = JSON.parse(localStorage.getItem("user") || "{}");
+      if (!userData || !userData.accessToken) {
+        throw new Error("No access token found. Please log in.");
+      }
+
       const response = await fetch("http://localhost:3000/api/v1/product", {
         credentials: "include",
+        headers: {
+          Authorization: `Bearer ${userData.accessToken}`,
+        },
       });
       if (!response.ok) throw new Error(`Lỗi HTTP: ${response.status}`);
       const result = await response.json();
@@ -107,9 +78,9 @@ const ProductManagement = () => {
   }, []);
 
   useEffect(() => {
-    fetchCategories();
+    fetchCategoriesData();
     fetchProducts();
-  }, [fetchCategories, fetchProducts]);
+  }, [fetchCategoriesData, fetchProducts]);
 
   const filteredProducts = useMemo(() => {
     let filtered = products;
@@ -147,23 +118,29 @@ const ProductManagement = () => {
     navigate("/admin/products/add");
   };
 
-  // Function to open delete confirmation modal
   const openConfirmDeleteModal = (productId) => {
     setProductToDeleteId(productId);
   };
 
-  // Function to perform delete after modal confirmation
   const confirmDeleteProduct = useCallback(async () => {
-    if (!productToDeleteId) return; // Should not happen if modal is open
+    if (!productToDeleteId) return;
 
     setLoading(true);
     setError(null);
     try {
+      const userData = JSON.parse(localStorage.getItem("user") || "{}");
+      if (!userData || !userData.accessToken) {
+        throw new Error("No access token found. Please log in.");
+      }
+
       const response = await fetch(
         `http://localhost:3000/api/v1/product/delete/${productToDeleteId}`,
         {
-          method: "PATCH", // Assuming soft delete via PATCH
+          method: "PATCH",
           credentials: "include",
+          headers: {
+            Authorization: `Bearer ${userData.accessToken}`,
+          },
         }
       );
       if (!response.ok) {
@@ -177,9 +154,7 @@ const ProductManagement = () => {
       console.log(
         `Sản phẩm ID ${productToDeleteId} đã được xóa (soft delete).`
       );
-      // Re-fetch products to update the list
       fetchProducts();
-      // Close the modal
       setProductToDeleteId(null);
     } catch (err) {
       console.error("Lỗi khi xóa sản phẩm:", err);
@@ -187,13 +162,7 @@ const ProductManagement = () => {
     } finally {
       setLoading(false);
     }
-  }, [
-    productToDeleteId,
-    fetchProducts,
-    setLoading,
-    setError,
-    setProductToDeleteId,
-  ]);
+  }, [productToDeleteId, fetchProducts]);
 
   const handleSelectProduct = (id) => {
     setSelectedProductIds((prev) =>
@@ -216,6 +185,11 @@ const ProductManagement = () => {
     setError(null);
     try {
       const { id, newStatus } = confirmStatusChange;
+      const userData = JSON.parse(localStorage.getItem("user") || "{}");
+      if (!userData || !userData.accessToken) {
+        throw new Error("No access token found. Please log in.");
+      }
+
       const response = await fetch(
         `http://localhost:3000/api/v1/product/change-status/${id}`,
         {
@@ -247,7 +221,7 @@ const ProductManagement = () => {
     } finally {
       setLoading(false);
     }
-  }, [confirmStatusChange, setLoading, setError, setProducts]);
+  }, [confirmStatusChange]);
 
   const openConfirmBulkModal = (status) => {
     if (selectedProductIds.length === 0) {
@@ -262,6 +236,11 @@ const ProductManagement = () => {
     setLoading(true);
     setError(null);
     try {
+      const userData = JSON.parse(localStorage.getItem("user") || "{}");
+      if (!userData || !userData.accessToken) {
+        throw new Error("No access token found. Please log in.");
+      }
+
       const response = await fetch(
         "http://localhost:3000/api/v1/product/change-multi",
         {
@@ -269,6 +248,7 @@ const ProductManagement = () => {
           credentials: "include",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${userData.accessToken}`,
           },
           body: JSON.stringify({
             ids: selectedProductIds,
@@ -302,14 +282,7 @@ const ProductManagement = () => {
     } finally {
       setLoading(false);
     }
-  }, [
-    confirmBulkStatus,
-    selectedProductIds,
-    setLoading,
-    setError,
-    setProducts,
-    setSelectedProductIds,
-  ]);
+  }, [confirmBulkStatus, selectedProductIds]);
 
   return (
     <div className="p-4 md:p-6">
@@ -429,7 +402,7 @@ const ProductManagement = () => {
         </div>
       )}
       {!loading && !error && (
-        <div className="overflow-x-auto ">
+        <div className="overflow-x-auto">
           <table className="table w-full">
             <thead className="bg-base-200 text-base-content">
               <tr>
@@ -529,17 +502,14 @@ const ProductManagement = () => {
                       >
                         <FaEdit />
                       </button>
-                      {/* --- MODIFIED DELETE BUTTON --- */}
                       <button
                         className="btn btn-sm btn-error btn-outline"
-                        // Call openConfirmDeleteModal instead of handleDelete
                         onClick={() => openConfirmDeleteModal(product._id)}
                         aria-label={`Xóa ${product.title}`}
                         disabled={loading}
                       >
                         <FaTrashAlt />
                       </button>
-                      {/* --- END MODIFIED DELETE BUTTON --- */}
                       <button
                         className="btn btn-sm btn-outline"
                         onClick={() =>
@@ -558,7 +528,6 @@ const ProductManagement = () => {
         </div>
       )}
 
-      {/* Status Change Confirmation Modal */}
       <input
         type="checkbox"
         id="confirm-status-modal"
@@ -595,7 +564,6 @@ const ProductManagement = () => {
         </div>
       </div>
 
-      {/* Bulk Status Change Confirmation Modal */}
       <input
         type="checkbox"
         id="confirm-bulk-modal"
@@ -632,13 +600,12 @@ const ProductManagement = () => {
         </div>
       </div>
 
-      {/* --- NEW DELETE CONFIRMATION MODAL --- */}
       <input
         type="checkbox"
         id="confirm-delete-modal"
         className="modal-toggle"
-        checked={!!productToDeleteId} // Modal is open if productToDeleteId is set
-        onChange={() => setProductToDeleteId(null)} // Allow closing by clicking outside
+        checked={!!productToDeleteId}
+        onChange={() => setProductToDeleteId(null)}
       />
       <div className="modal">
         <div className="modal-box">
@@ -655,7 +622,7 @@ const ProductManagement = () => {
           <div className="modal-action">
             <button
               className="btn btn-error"
-              onClick={confirmDeleteProduct} // Call the confirmation function
+              onClick={confirmDeleteProduct}
               disabled={loading}
               aria-label="Xác nhận xóa sản phẩm đã chọn"
             >
@@ -663,7 +630,7 @@ const ProductManagement = () => {
             </button>
             <button
               className="btn"
-              onClick={() => setProductToDeleteId(null)} // Cancel closes the modal
+              onClick={() => setProductToDeleteId(null)}
               disabled={loading}
               aria-label="Hủy xóa sản phẩm"
             >
@@ -672,7 +639,6 @@ const ProductManagement = () => {
           </div>
         </div>
       </div>
-      {/* --- END NEW DELETE CONFIRMATION MODAL --- */}
     </div>
   );
 };

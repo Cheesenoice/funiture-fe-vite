@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import AddEditCategory from "./Product/AddEditCategory";
+import AddEditCategory from "./AddEditCategory";
 
 const CategoryManagement = () => {
   const [categories, setCategories] = useState([]);
@@ -333,83 +333,91 @@ const CategoryManagement = () => {
             </div>
           </div>
 
-          <div className="flex items-center space-x-4 flex-shrink-0 ml-4">
-            <span
-              className="w-28 truncate text-xs hidden md:inline"
-              title={category.slug}
-            >
-              {category.slug}
-            </span>
-            <span
-              className="w-28 truncate text-xs hidden lg:inline"
-              title={category.accountFullName}
-            >
-              {category.accountFullName || "N/A"}
-            </span>
-            <span className="w-40 text-xs hidden xl:inline">
-              {category.lastUpdater?.name !== "Not updated yet"
-                ? category.lastUpdater?.name
-                : "Chưa cập nhật"}
-              <br />
-              <span className="badge badge-ghost badge-xs">
-                {category.lastUpdater?.time
-                  ? new Date(category.lastUpdater.time).toLocaleString("vi-VN")
-                  : "N/A"}
+          <div className="flex items-center space-x-4 flex-shrink-0 ml-4 relative">
+            <div className="flex items-center space-x-4">
+              <span
+                className="w-28 truncate text-xs hidden md:inline"
+                title={category.slug}
+              >
+                {category.slug}
               </span>
-            </span>
-            <span className="w-10 text-center text-xs hidden md:inline">
-              {category.index}
-            </span>
-            <div className="flex space-x-1">
-              <button
-                className="btn btn-ghost btn-xs text-info"
-                title="Sửa"
-                onClick={(e) => handleEditCategoryClick(category, e)} // Use new handler
-                disabled={loading || isUpdatingStatus}
+              <span
+                className="w-28 truncate text-xs hidden lg:inline"
+                title={category.accountFullName}
               >
-                Sửa
-              </button>
-              <button
-                className="btn btn-ghost btn-xs text-error"
-                onClick={(e) => {
-                  e.stopPropagation(); // Prevent click from triggering collapse
-                  openConfirmDeleteModal(category.id);
-                }}
-                disabled={loading || isUpdatingStatus}
-                title="Xóa"
-              >
-                Xóa
-              </button>
-              <button
-                className="btn btn-ghost btn-xs text-primary"
-                onClick={(e) => {
-                  e.stopPropagation(); // Prevent click from triggering collapse
-                  openConfirmStatusModal(category.id, category.status);
-                }}
-                disabled={loading || isUpdatingStatus}
-                title={category.status === "active" ? "Ngừng" : "Kích"}
-              >
-                {category.status === "active" ? "Ngừng" : "Kích"}
-              </button>
+                {category.accountFullName || "N/A"}
+              </span>
+              <span className="w-40 text-xs hidden xl:inline">
+                {category.lastUpdater?.name !== "Not updated yet"
+                  ? category.lastUpdater?.name
+                  : "Chưa cập nhật"}
+                <br />
+                <span className="badge badge-ghost badge-xs">
+                  {category.lastUpdater?.time
+                    ? new Date(category.lastUpdater.time).toLocaleString(
+                        "vi-VN"
+                      )
+                    : "N/A"}
+                </span>
+              </span>
+              <span className="w-10 text-center text-xs hidden md:inline">
+                {category.index}
+              </span>
+              <div className="flex space-x-1">
+                <button
+                  className="btn btn-ghost btn-xs text-info"
+                  title="Sửa"
+                  onClick={(e) => handleEditCategoryClick(category, e)} // Use new handler
+                  disabled={loading || isUpdatingStatus}
+                >
+                  Sửa
+                </button>
+                <button
+                  className="btn btn-ghost btn-xs text-error"
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent click from triggering collapse
+                    openConfirmDeleteModal(category.id);
+                  }}
+                  disabled={loading || isUpdatingStatus}
+                  title="Xóa"
+                >
+                  Xóa
+                </button>
+                <button
+                  className="btn btn-ghost btn-xs text-primary"
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent click from triggering collapse
+                    openConfirmStatusModal(category.id, category.status);
+                  }}
+                  disabled={loading || isUpdatingStatus}
+                  title={category.status === "active" ? "Ngừng" : "Kích"}
+                >
+                  {category.status === "active" ? "Ngừng" : "Kích"}
+                </button>
+              </div>
+              <div>
+                {hasChildren && (
+                  <div className="absolute -right-2 top-1/2 -translate-y-1/2">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className={`h-4 w-4 transition-transform duration-200 ${
+                        !isCollapsed ? "rotate-90" : ""
+                      }`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
+                  </div>
+                )}
+              </div>
             </div>
-            {hasChildren && (
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className={`h-4 w-4 transition-transform duration-200 ${
-                  !isCollapsed ? "rotate-90" : ""
-                }`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            )}
           </div>
         </div>
       );

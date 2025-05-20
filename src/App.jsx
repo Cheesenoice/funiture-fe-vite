@@ -13,12 +13,16 @@ import Checkout from "./pages/Home/Checkout";
 import ThankYou from "./pages/Home/ThankYou";
 import AdminLayout from "./pages/Admin/AdminLayout";
 import AdminDashboard from "./pages/Admin/AdminDashboard";
-import UserManagement from "./pages/Admin/UserManagement";
+import UserManagement from "./pages/Admin/User/UserManagement";
+import UserOrder from "./pages/Admin/User/UserOrder";
 import ProductManagement from "./pages/Admin/Product/ProductManagement";
 import AddEditProduct from "./pages/Admin/Product/AddEditProduct";
-import CategoryManagement from "./pages/Admin/CategoryManagement";
+import CategoryManagement from "./pages/Admin/Category/CategoryManagement";
 import OrderManagement from "./pages/Admin/Order/OrderManagement";
 import OrderDetail from "./pages/Admin/Order/OrderDetail";
+import BlogManagement from "./pages/Admin/Blog/BlogManagement";
+import AddEditBlog from "./pages/Admin/Blog/AddEditBlog";
+import BlogDetail from "./pages/Home/BlogDetail";
 import AdminRoute from "./routes/AdminRoute";
 
 function App() {
@@ -51,6 +55,8 @@ function App() {
             path="/productscollection/category/:categoryDescription"
             element={<ProductCollection filter="category" />}
           />
+          <Route path="/blog/:slug" element={<BlogDetail />} />
+
           <Route
             path="/admin/*"
             element={
@@ -61,6 +67,7 @@ function App() {
           >
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="users" element={<UserManagement />} />
+            <Route path="users/:userId" element={<UserOrder />} />
             <Route path="products" element={<ProductManagement />} />
             <Route path="products/add" element={<AddEditProduct />} />
             <Route
@@ -70,6 +77,9 @@ function App() {
             <Route path="categories" element={<CategoryManagement />} />
             <Route path="orders" element={<OrderManagement />} />
             <Route path="orders/:orderId" element={<OrderDetail />} />
+            <Route path="blog" element={<BlogManagement />} />
+            <Route path="blog/add" element={<AddEditBlog />} />
+            <Route path="blog/edit/:blogId" element={<AddEditBlog />} />
           </Route>
         </Routes>
         <Footer />

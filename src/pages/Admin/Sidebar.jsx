@@ -9,6 +9,7 @@ import {
   LogOut,
   ChevronDown,
   ChevronUp,
+  Newspaper,
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
@@ -32,6 +33,7 @@ const Sidebar = () => {
     { icon: Users, label: "Users", path: "/admin/users" },
     { icon: Folder, label: "Danh mục", path: "/admin/categories" },
     { icon: Package, label: "Đơn hàng", path: "/admin/orders" },
+    { icon: Newspaper, label: "Blog", path: "/admin/blog" },
   ];
 
   const handleLogout = () => {

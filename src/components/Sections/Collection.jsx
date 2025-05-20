@@ -8,7 +8,7 @@ const Collection = () => {
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {/* Top Row: 3 Images */}
           <div className="relative">
-            <a href="/sofa" className="block">
+            <a href="/productscollection/category/sofa" className="block">
               {/* Image 1 (Sofa) */}
               <img
                 src="/collection/collection-sofa.jpg" // Đường dẫn từ thư mục public

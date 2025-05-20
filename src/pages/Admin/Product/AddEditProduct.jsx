@@ -1,30 +1,12 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { FaSave, FaTimes } from "react-icons/fa";
-
-// --- Hàm tiện ích làm phẳng danh mục (có thể import từ file utils) ---
-const flattenCategories = (categories) => {
-  if (!Array.isArray(categories)) return [];
-  const flatList = [];
-  const processCategory = (category, parentName = null) => {
-    const displayName = parentName
-      ? `${parentName} > ${category.name}`
-      : category.name;
-    flatList.push({ id: category.category_id, name: displayName });
-    if (category.subcategories && category.subcategories.length > 0) {
-      category.subcategories.forEach((sub) =>
-        processCategory(sub, category.name)
-      );
-    }
-  };
-  categories.forEach((cat) => processCategory(cat));
-  return flatList;
-};
+import { fetchCategories } from "./fetchCategories"; // Import the utility
 
 const AddEditProduct = () => {
-  const { productId } = useParams(); // Lấy productId từ URL nếu có (cho edit)
+  const { productId } = useParams();
   const navigate = useNavigate();
-  const isEditing = Boolean(productId); // Xác định là Add hay Edit
+  const isEditing = Boolean(productId);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -35,64 +17,40 @@ const AddEditProduct = () => {
     stock: 0,
     discountPercentage: 0,
     thumbnail: "",
-    status: "inactive", // Mặc định là inactive
+    status: "active",
     position: 0,
-    featured: "0", // Mặc định là không nổi bật
+    featured: "0",
   });
   const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(false); // Loading cho fetch dữ liệu (edit) hoặc categories
-  const [submitLoading, setSubmitLoading] = useState(false); // Loading khi submit form
-  const [error, setError] = useState(null); // Lỗi chung hoặc lỗi API
-  const [categoryError, setCategoryError] = useState(null); // Lỗi load category
+  const [loading, setLoading] = useState(false);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [categoryError, setCategoryError] = useState(null);
 
-  // --- Load Categories từ sessionStorage ---
+  // Load Categories using fetchCategories
   useEffect(() => {
-    setCategoryError(null);
-    try {
-      const cachedCategoriesString = sessionStorage.getItem("categories_cache");
-      if (cachedCategoriesString) {
-        const parsedData = JSON.parse(cachedCategoriesString);
-        let categoriesArray = null;
-        if (Array.isArray(parsedData)) {
-          categoriesArray = parsedData;
-        } else if (
-          parsedData &&
-          typeof parsedData === "object" &&
-          Array.isArray(parsedData.data)
-        ) {
-          categoriesArray = parsedData.data;
-        }
-        // Thêm các kiểm tra khác nếu cần
-
-        if (categoriesArray) {
-          const flattened = flattenCategories(categoriesArray);
-          setCategories(flattened);
-        } else {
-          setCategoryError("Định dạng dữ liệu danh mục không hợp lệ.");
-          setCategories([]);
-        }
-      } else {
-        setCategoryError("Không tìm thấy dữ liệu danh mục trong cache.");
+    const fetchCategoriesData = async () => {
+      setCategoryError(null);
+      try {
+        const categoriesData = await fetchCategories();
+        setCategories(categoriesData);
+      } catch (e) {
+        console.error("Lỗi tải danh mục:", e);
+        setCategoryError(`Lỗi khi tải danh mục: ${e.message}`);
         setCategories([]);
       }
-    } catch (e) {
-      console.error("Lỗi tải danh mục:", e);
-      setCategoryError("Lỗi khi tải danh mục từ cache.");
-      setCategories([]);
-    }
+    };
+    fetchCategoriesData();
   }, []);
 
-  // --- Load Product Data nếu là Edit Mode ---
+  // Load Product Data if in Edit Mode
   const fetchProductData = useCallback(async () => {
-    if (!isEditing) return; // Chỉ fetch nếu là edit
+    if (!isEditing) return;
 
     setLoading(true);
     setError(null);
     console.log(`Fetching data for product ID: ${productId}`);
     try {
-      // !! Quan trọng: Cần endpoint lấy chi tiết 1 sản phẩm !!
-      // Giả sử endpoint là /api/v1/product/detail/{productId}
-      // Nếu không có, bạn phải lấy cả list và tìm, rất không hiệu quả
       const response = await fetch(
         `http://localhost:3000/api/v1/product/detail/${productId}`,
         {
@@ -109,11 +67,9 @@ const AddEditProduct = () => {
 
       const result = await response.json();
 
-      // Kiểm tra cấu trúc trả về của API detail
       if (result.code === 200 && result.data) {
         const productData = result.data;
         console.log("Fetched product data:", productData);
-        // Cập nhật formData, đảm bảo các trường số là số
         setFormData({
           title: productData.title || "",
           description: productData.description || "",
@@ -125,7 +81,7 @@ const AddEditProduct = () => {
           thumbnail: productData.thumbnail || "",
           status: productData.status || "inactive",
           position: Number(productData.position) || 0,
-          featured: String(productData.featured) || "0", // Chuyển sang string '0' hoặc '1'
+          featured: String(productData.featured) || "0",
         });
       } else {
         throw new Error(
@@ -135,18 +91,16 @@ const AddEditProduct = () => {
     } catch (err) {
       console.error("Lỗi khi fetch dữ liệu sản phẩm:", err);
       setError(`Không thể tải dữ liệu sản phẩm: ${err.message}`);
-      // Có thể navigate về list nếu lỗi nghiêm trọng
-      // navigate('/admin/products');
     } finally {
       setLoading(false);
     }
-  }, [productId, isEditing, navigate]); // Thêm navigate vào dependency
+  }, [productId, isEditing]);
 
   useEffect(() => {
     fetchProductData();
-  }, [fetchProductData]); // Gọi fetchProductData khi nó thay đổi (chỉ 1 lần thực sự do useCallback)
+  }, [fetchProductData]);
 
-  // --- Handle Form Input Change ---
+  // Handle Form Input Change
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
 
@@ -156,25 +110,23 @@ const AddEditProduct = () => {
         type === "checkbox"
           ? checked
             ? "1"
-            : "0" // Xử lý checkbox cho 'featured'
+            : "0"
           : type === "number"
           ? value === ""
             ? ""
-            : Number(value) // Giữ '' hoặc chuyển sang số
+            : Number(value)
           : value,
     }));
   };
 
-  // --- Handle Form Submit ---
+  // Handle Form Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(null); // Reset lỗi trước khi submit
+    setError(null);
     setSubmitLoading(true);
 
-    // --- Chuẩn bị dữ liệu gửi đi ---
     const payload = {
       ...formData,
-      // Đảm bảo các trường số là số trước khi gửi, xử lý trường hợp input rỗng
       price: formData.price === "" ? 0 : Number(formData.price),
       stock: formData.stock === "" ? 0 : Number(formData.stock),
       discountPercentage:
@@ -182,16 +134,12 @@ const AddEditProduct = () => {
           ? 0
           : Number(formData.discountPercentage),
       position: formData.position === "" ? 0 : Number(formData.position),
-      // featured đã là '0' hoặc '1' từ handleChange
     };
 
-    // --- Xác định URL và Method ---
     const url = isEditing
       ? `http://localhost:3000/api/v1/product/edit/${productId}`
       : "http://localhost:3000/api/v1/product/create";
     const method = isEditing ? "PATCH" : "POST";
-
-    console.log(`Submitting to ${url} with method ${method}`, payload);
 
     try {
       const response = await fetch(url, {
@@ -200,21 +148,18 @@ const AddEditProduct = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
-        credentials: "include", // Gửi kèm credentials
+        credentials: "include",
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        // Thử lấy message lỗi từ API response
         const errorMessage = result.message || `Lỗi ${response.status}`;
         throw new Error(errorMessage);
       }
 
-      console.log("API Response:", result);
-      // Hiển thị thông báo thành công (ví dụ: dùng react-toastify)
       alert(`Sản phẩm đã được ${isEditing ? "cập nhật" : "thêm"} thành công!`);
-      navigate("/admin/products"); // Quay về trang danh sách
+      navigate("/admin/products");
     } catch (err) {
       console.error("Lỗi khi submit form:", err);
       setError(`Lưu sản phẩm thất bại: ${err.message}`);
@@ -223,7 +168,6 @@ const AddEditProduct = () => {
     }
   };
 
-  // --- Render ---
   if (loading && isEditing) {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -264,7 +208,6 @@ const AddEditProduct = () => {
         onSubmit={handleSubmit}
         className="space-y-4 bg-base-100 p-6 rounded-lg shadow-lg"
       >
-        {/* Title */}
         <div className="form-control">
           <label className="label">
             <span className="label-text font-semibold">
@@ -282,7 +225,6 @@ const AddEditProduct = () => {
           />
         </div>
 
-        {/* Description */}
         <div className="form-control">
           <label className="label">
             <span className="label-text font-semibold">Mô tả</span>
@@ -296,7 +238,6 @@ const AddEditProduct = () => {
           />
         </div>
 
-        {/* Category */}
         <div className="form-control">
           <label className="label">
             <span className="label-text font-semibold">
@@ -332,7 +273,6 @@ const AddEditProduct = () => {
           )}
         </div>
 
-        {/* Color */}
         <div className="form-control">
           <label className="label">
             <span className="label-text font-semibold">Màu sắc</span>
@@ -347,7 +287,6 @@ const AddEditProduct = () => {
           />
         </div>
 
-        {/* Price, Stock, Discount */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="form-control">
             <label className="label">
@@ -400,7 +339,6 @@ const AddEditProduct = () => {
           </div>
         </div>
 
-        {/* Thumbnail URL */}
         <div className="form-control">
           <label className="label">
             <span className="label-text font-semibold">Link ảnh đại diện</span>
@@ -426,9 +364,7 @@ const AddEditProduct = () => {
           )}
         </div>
 
-        {/* Status and Featured */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-          {/* Status */}
           <div className="form-control">
             <label className="label">
               <span className="label-text font-semibold">Trạng thái</span>
@@ -459,7 +395,6 @@ const AddEditProduct = () => {
             </div>
           </div>
 
-          {/* Position */}
           <div className="form-control">
             <label className="label">
               <span className="label-text font-semibold">Vị trí</span>
@@ -475,13 +410,12 @@ const AddEditProduct = () => {
             />
           </div>
 
-          {/* Featured */}
           <div className="form-control">
             <label className="label cursor-pointer justify-start gap-2">
               <input
                 type="checkbox"
                 name="featured"
-                checked={formData.featured === "1"} // So sánh với string '1'
+                checked={formData.featured === "1"}
                 onChange={handleChange}
                 className="checkbox checkbox-primary"
               />
@@ -490,12 +424,11 @@ const AddEditProduct = () => {
           </div>
         </div>
 
-        {/* Action Buttons */}
         <div className="flex justify-end gap-4 pt-4">
           <button
             type="button"
             className="btn btn-ghost"
-            onClick={() => navigate("/admin/products")} // Nút hủy quay về list
+            onClick={() => navigate("/admin/products")}
             disabled={submitLoading}
           >
             <FaTimes className="mr-2" /> Hủy
@@ -508,7 +441,7 @@ const AddEditProduct = () => {
               loading ||
               !!categoryError ||
               categories.length === 0
-            } // Disable nếu đang tải hoặc lỗi category
+            }
           >
             {submitLoading ? (
               <span className="loading loading-spinner loading-xs mr-2"></span>

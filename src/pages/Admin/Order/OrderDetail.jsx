@@ -8,6 +8,9 @@ const OrderDetail = () => {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [selectedStatus, setSelectedStatus] = useState(null);
+  const [updateMessage, setUpdateMessage] = useState(null);
+  const [updateError, setUpdateError] = useState(null);
 
   // Fetch order details
   const fetchOrder = async () => {
@@ -49,6 +52,53 @@ const OrderDetail = () => {
       console.error("Error fetching order:", err);
       setError(err.message);
       setOrder(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Update order status
+  const updateOrderStatus = async () => {
+    if (!selectedStatus) {
+      setUpdateError("Vui lòng chọn trạng thái trước khi cập nhật.");
+      return;
+    }
+
+    setLoading(true);
+    setUpdateMessage(null);
+    setUpdateError(null);
+
+    try {
+      const userData = JSON.parse(localStorage.getItem("user") || "{}");
+      const accessToken = userData.accessToken;
+      if (!accessToken) {
+        throw new Error("No access token found. Please log in.");
+      }
+
+      const response = await fetch(
+        `http://localhost:3000/api/v1/order/update-status/${orderId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ status: selectedStatus }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (result.success) {
+        setUpdateMessage(result.message);
+        setOrder(result.data);
+        setSelectedStatus(null); // Reset selected status after successful update
+      } else {
+        throw new Error(result.message || "Failed to update status");
+      }
+    } catch (err) {
+      console.error("Error updating order status:", err);
+      setUpdateError(err.message);
     } finally {
       setLoading(false);
     }
@@ -131,9 +181,10 @@ const OrderDetail = () => {
     return currentStatusIndex <= latestStatusIndex && status !== "Canceled";
   };
 
-  // Get the index of the canceled status if it exists
-  const getCanceledIndex = () => {
-    return order?.orderStatus.findIndex((s) => s.status === "Canceled");
+  // Handle status selection
+  const handleStatusSelect = (status) => {
+    setSelectedStatus(status);
+    setUpdateError(null); // Clear any previous update errors
   };
 
   return (
@@ -167,6 +218,44 @@ const OrderDetail = () => {
           <span>
             <strong>Lỗi!</strong> {error} Redirecting to orders list...
           </span>
+        </div>
+      )}
+
+      {/* Update Status Feedback */}
+      {updateMessage && (
+        <div role="alert" className="alert alert-success shadow-lg mb-6">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="stroke-current shrink-0 h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M5 13l4 4L19 7"
+            />
+          </svg>
+          <span>{updateMessage}</span>
+        </div>
+      )}
+      {updateError && (
+        <div role="alert" className="alert alert-error shadow-lg mb-6">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="stroke-current shrink-0 h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+          <span>{updateError}</span>
         </div>
       )}
 
@@ -346,9 +435,7 @@ const OrderDetail = () => {
                     { status: "Delivered", label: "Đã giao", icon: Home },
                   ].map((step, index, steps) => {
                     const isCompleted = isStatusCompleted(step.status);
-                    const canceledIndex = getCanceledIndex();
-                    const isAfterCanceled =
-                      canceledIndex !== -1 && index > canceledIndex;
+                    const isSelected = selectedStatus === step.status;
                     const isLast = index === steps.length - 1;
 
                     // Find the status entry to get the timestamp
@@ -364,41 +451,41 @@ const OrderDetail = () => {
                         key={step.status}
                         className="flex flex-col items-center relative z-10"
                       >
-                        <div
+                        <button
                           className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${
-                            isCanceled() && isAfterCanceled
-                              ? "bg-gray-200 text-gray-400"
-                              : isCompleted
+                            isSelected
+                              ? "bg-primary text-white"
+                              : isCompleted && !isCanceled()
                               ? "bg-success text-white"
-                              : "bg-gray-200 text-gray-500"
+                              : isCanceled()
+                              ? "bg-base-100 text-gray-500"
+                              : "bg-gray-200 text-gray-500 hover:bg-primary hover:text-white"
                           }`}
+                          onClick={() => handleStatusSelect(step.status)}
                         >
-                          {isCanceled() && index === canceledIndex ? (
-                            <X size={24} className="text-error" />
-                          ) : (
-                            <step.icon size={24} />
-                          )}
-                        </div>
+                          <step.icon size={24} />
+                        </button>
                         <span
                           className={`mt-2 text-sm font-medium text-center ${
-                            isCanceled() && isAfterCanceled
-                              ? "text-gray-400"
-                              : isCompleted
+                            isSelected
+                              ? "text-primary"
+                              : isCompleted && !isCanceled()
                               ? "text-success"
+                              : isCanceled()
+                              ? "text-gray-400"
                               : "text-gray-500"
                           }`}
                         >
-                          {isCanceled() && index === canceledIndex
-                            ? "Đã hủy"
-                            : step.label}
+                          {step.label}
                         </span>
-                        {/* Add timestamp below the status label */}
                         <span
                           className={`mt-1 text-xs text-center ${
-                            isCanceled() && isAfterCanceled
-                              ? "text-gray-400"
-                              : isCompleted
+                            isSelected
+                              ? "text-primary"
+                              : isCompleted && !isCanceled()
                               ? "text-success"
+                              : isCanceled()
+                              ? "text-gray-400"
                               : "text-gray-500"
                           }`}
                         >
@@ -407,9 +494,7 @@ const OrderDetail = () => {
                         {!isLast && (
                           <div
                             className={`absolute top-6 h-1 ${
-                              isCanceled() && index >= canceledIndex
-                                ? "bg-gray-200"
-                                : isCompleted
+                              isCompleted && !isCanceled()
                                 ? "bg-success"
                                 : "bg-gray-200"
                             }`}
@@ -426,6 +511,67 @@ const OrderDetail = () => {
                     );
                   })}
                 </div>
+              </div>
+
+              {/* Canceled Status */}
+              <div className="mt-6 flex justify-center">
+                <div className="flex flex-col items-center">
+                  <button
+                    className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${
+                      selectedStatus === "Canceled"
+                        ? "bg-primary text-white"
+                        : isCanceled()
+                        ? "bg-error text-white"
+                        : "bg-gray-200 text-gray-500 hover:bg-primary hover:text-white"
+                    }`}
+                    onClick={() => handleStatusSelect("Canceled")}
+                  >
+                    <X size={24} />
+                  </button>
+                  <span
+                    className={`mt-2 text-sm font-medium text-center ${
+                      selectedStatus === "Canceled"
+                        ? "text-primary"
+                        : isCanceled()
+                        ? "text-error"
+                        : "text-gray-500"
+                    }`}
+                  >
+                    Đã hủy
+                  </span>
+                  <span
+                    className={`mt-1 text-xs text-center ${
+                      selectedStatus === "Canceled"
+                        ? "text-primary"
+                        : isCanceled()
+                        ? "text-error"
+                        : "text-gray-500"
+                    }`}
+                  >
+                    {order?.orderStatus.find((s) => s.status === "Canceled")
+                      ? new Date(
+                          order.orderStatus.find(
+                            (s) => s.status === "Canceled"
+                          ).updatedAt
+                        ).toLocaleString()
+                      : ""}
+                  </span>
+                </div>
+              </div>
+
+              {/* Update Button */}
+              <div className="mt-4 flex justify-end">
+                <button
+                  className="btn btn-primary"
+                  onClick={updateOrderStatus}
+                  disabled={loading || !selectedStatus}
+                >
+                  {loading ? (
+                    <span className="loading loading-spinner"></span>
+                  ) : (
+                    "Cập nhật trạng thái"
+                  )}
+                </button>
               </div>
             </div>
 

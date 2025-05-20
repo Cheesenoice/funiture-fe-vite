@@ -4,6 +4,7 @@ import ProductCarousel from "../../components/Sections/ProductCarousel";
 import ProductList from "../../components/Sections/ProductList";
 import Collection from "../../components/Sections/Collection";
 import SearchAiModal from "../../components/Common/SearchAi";
+import Blog from "../../components/Sections/Blog";
 
 function Home() {
   return (
@@ -14,6 +15,7 @@ function Home() {
       <Collection />
       <ProductCarousel />
       <ProductList />
+      <Blog />
       {/* Chat Button and Modal */}
       <div className="fixed bottom-6 right-6 z-50">
         <SearchAiModal />
