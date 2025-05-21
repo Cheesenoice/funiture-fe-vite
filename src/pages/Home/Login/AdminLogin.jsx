@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import axios from "axios"; // Thêm axios
+import axios from "axios";
 
 const AdminLogin = () => {
   const [email, setEmail] = useState("");
@@ -37,7 +37,7 @@ const AdminLogin = () => {
         alert(message); // "Đăng nhập thành công"
 
         // Chuyển hướng đến trang khác (ví dụ: Dashboard hoặc Trang chủ)
-        window.location.href = "/"; // Hoặc sử dụng navigate() nếu bạn dùng React Router
+        window.location.href = "/admin/dashboard"; // Hoặc sử dụng navigate() nếu bạn dùng React Router
       } else if (response.data.code === 404) {
         setError(response.data.message);
       }
@@ -48,43 +48,50 @@ const AdminLogin = () => {
   };
 
   return (
-    <form className="space-y-6" onSubmit={handleLogin}>
-      <div className="form-control">
-        <label className="label">
-          <span className="label-text">Email</span>
-        </label>
-        <input
-          type="email"
-          placeholder="Enter your email"
-          className="input input-bordered w-full"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-      </div>
+    <div className="min-h-screen flex items-center justify-center p-6 bg-base-100">
+      <div className="w-full max-w-md space-y-8">
+        <h2 className="text-2xl font-bold text-center">Admin Login</h2>
+        <form className="space-y-6" onSubmit={handleLogin}>
+          <div className="form-control">
+            <label className="label">
+              <span className="label-text">Email</span>
+            </label>
+            <input
+              type="email"
+              placeholder="Enter your email"
+              className="input input-bordered w-full"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
 
-      <div className="form-control">
-        <label className="label">
-          <span className="label-text">Password</span>
-        </label>
-        <input
-          type="password"
-          placeholder="Enter your password"
-          className="input input-bordered w-full"
-          value={passWord}
-          onChange={(e) => setPassWord(e.target.value)}
-          required
-        />
-      </div>
+          <div className="form-control">
+            <label className="label">
+              <span className="label-text">Password</span>
+            </label>
+            <input
+              type="password"
+              placeholder="Enter your password"
+              className="input input-bordered w-full"
+              value={passWord}
+              onChange={(e) => setPassWord(e.target.value)}
+              required
+            />
+          </div>
 
-      {error && <div className="text-sm text-center text-red-500">{error}</div>}
+          {error && (
+            <div className="text-sm text-center text-red-500">{error}</div>
+          )}
 
-      <div>
-        <button type="submit" className="btn btn-primary w-full">
-          Admin Login
-        </button>
+          <div>
+            <button type="submit" className="btn btn-primary w-full">
+              Admin Login
+            </button>
+          </div>
+        </form>
       </div>
-    </form>
+    </div>
   );
 };
 

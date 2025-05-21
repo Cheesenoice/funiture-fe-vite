@@ -1,9 +1,9 @@
-// src/components/Sections/ProductDetail.jsx
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import ProductCard from "../../components/Common/ProductCard";
 import { productService } from "../../api/services/productService";
 import Header from "../../components/Layout/Header/Header";
+import AddToCartButton from "../../components/Common/AddToCartButton";
 
 export default function ProductDetail() {
   const { slug } = useParams();
@@ -134,15 +134,10 @@ export default function ProductDetail() {
               </p>
             </div>
             <div className="mt-6">
-              <button
-                className={`btn btn-primary btn-block ${
-                  product.stock === 0 ? "btn-disabled" : ""
-                }`}
+              <AddToCartButton
+                productId={product._id}
                 disabled={product.stock === 0}
-                onClick={() => console.log("Added to cart:", product.title)}
-              >
-                Thêm vào giỏ
-              </button>
+              />
             </div>
           </div>
         </div>

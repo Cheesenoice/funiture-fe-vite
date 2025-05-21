@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Footer from "./components/Layout/Footer/Footer";
 import Home from "./pages/Home/Home";
 import Login from "./pages/Home/Login/Login";
+import AdminLogin from "./pages/Home/Login/AdminLogin";
 import ProductCollection from "./pages/Home/ProductCollection";
 import ProductDetail from "./pages/Home/ProductDetail";
 import Cart from "./pages/Home/Cart";
@@ -23,6 +24,7 @@ import OrderDetail from "./pages/Admin/Order/OrderDetail";
 import BlogManagement from "./pages/Admin/Blog/BlogManagement";
 import AddEditBlog from "./pages/Admin/Blog/AddEditBlog";
 import BlogDetail from "./pages/Home/BlogDetail";
+import ShippingFeeManagement from "./pages/Admin/ShippingFee/ShippingFeeManagement";
 import AdminRoute from "./routes/AdminRoute";
 
 function App() {
@@ -32,6 +34,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/account" element={<Profile />} />
           <Route path="/account/password" element={<Profile />} />
@@ -80,6 +83,7 @@ function App() {
             <Route path="blog" element={<BlogManagement />} />
             <Route path="blog/add" element={<AddEditBlog />} />
             <Route path="blog/edit/:blogId" element={<AddEditBlog />} />
+            <Route path="shippingfee" element={<ShippingFeeManagement />} />
           </Route>
         </Routes>
         <Footer />

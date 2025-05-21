@@ -12,10 +12,10 @@ function Home() {
       <div className="sticky top-0 z-50 bg-white shadow-md">
         <Header />
       </div>
+      <Blog />
       <Collection />
       <ProductCarousel />
       <ProductList />
-      <Blog />
       {/* Chat Button and Modal */}
       <div className="fixed bottom-6 right-6 z-50">
         <SearchAiModal />

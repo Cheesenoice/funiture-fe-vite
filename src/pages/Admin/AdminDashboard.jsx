@@ -111,7 +111,7 @@ const AdminDashboard = () => {
           🎉 Chào mừng, {user?.name || "Admin"}!
         </h1>
         <p className="text-lg text-base-content">
-          Đây là giao diện Dashboard dành cho phòng đào tạo
+          Đây là giao diện Dashboard dành chủ cửa hàng
         </p>
       </div>
 

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import Cookies from "js-cookie";
 import {
   Menu,
   X,
@@ -10,6 +11,7 @@ import {
   ChevronDown,
   ChevronUp,
   Newspaper,
+  Truck,
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
@@ -34,9 +36,14 @@ const Sidebar = () => {
     { icon: Folder, label: "Danh mục", path: "/admin/categories" },
     { icon: Package, label: "Đơn hàng", path: "/admin/orders" },
     { icon: Newspaper, label: "Blog", path: "/admin/blog" },
+    { icon: Truck, label: "Phí vận chuyển", path: "/admin/shippingfee" },
   ];
 
   const handleLogout = () => {
+    const allCookies = Cookies.get();
+    Object.keys(allCookies).forEach((cookieName) => {
+      Cookies.remove(cookieName, { path: "/" });
+    });
     localStorage.removeItem("user");
     navigate("/");
   };

@@ -155,6 +155,7 @@ const OrderManagement = () => {
               <option value="Being delivered">Đang giao</option>
               <option value="Delivered">Đã giao</option>
               <option value="Canceled">Đã hủy</option>
+              <option value="Canceled by user">Hủy bởi người dùng</option>
             </select>
           </div>
 
@@ -191,7 +192,9 @@ const OrderManagement = () => {
                             ? "badge-primary"
                             : getLatestStatus(order) === "Delivered"
                             ? "badge-success"
-                            : "badge-error"
+                            : getLatestStatus(order) === "Canceled"
+                            ? "badge-error"
+                            : "badge-error" // Use badge-error for Canceled by user or another class if preferred
                         } badge-md`}
                       >
                         {getLatestStatus(order) === "Receiving orders"
@@ -202,7 +205,9 @@ const OrderManagement = () => {
                           ? "Đang giao"
                           : getLatestStatus(order) === "Delivered"
                           ? "Đã giao"
-                          : "Đã hủy"}
+                          : getLatestStatus(order) === "Canceled"
+                          ? "Đã hủy"
+                          : "Hủy bởi người dùng"}
                       </span>
                     </td>
                     <td>

@@ -4,7 +4,6 @@ import axios from "axios";
 import Header from "../../../components/Layout/Header/Header";
 import Register from "./Register";
 import ForgotPassword from "./ForgotPassword";
-import AdminLogin from "./AdminLogin";
 import UserLogin from "./UserLogin";
 
 const Login = () => {
@@ -14,7 +13,7 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // ✅ Handle Google login callback
+  // Handle Google login callback
   useEffect(() => {
     const handleGoogleCallback = async () => {
       const params = new URLSearchParams(location.search);
@@ -69,12 +68,6 @@ const Login = () => {
                 onClick={() => setActiveTab("login")}
               >
                 Login
-              </a>
-              <a
-                className={`tab ${activeTab === "admin" ? "tab-active" : ""}`}
-                onClick={() => setActiveTab("admin")}
-              >
-                Admin
               </a>
               <a
                 className={`tab ${
@@ -142,9 +135,6 @@ const Login = () => {
 
             {/* Forgot Password */}
             {activeTab === "forgot" && <ForgotPassword />}
-
-            {/* Admin Login */}
-            {activeTab === "admin" && <AdminLogin />}
 
             {/* Social Login */}
             <p className="text-center text-sm">Or continue with</p>

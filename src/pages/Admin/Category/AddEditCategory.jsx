@@ -1,411 +1,274 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
 
-const AddEditBlog = () => {
-  const { blogId } = useParams(); // Match route parameter name
-  const navigate = useNavigate();
-  const [formData, setFormData] = useState({
+// Assuming you have a list of potential parent categories available in the parent component
+// and you pass it down via props.
+// The parent component (e.g., CategoryManagement) should filter this list
+// to exclude the category being edited and its descendants when in edit mode.
+
+const AddEditCategory = ({
+  isOpen,
+  onClose,
+  onSuccess,
+  categoryToEdit, // Null for add, category object for edit (using old structure like name, index, parentId)
+  parentCategories = [], // List of categories that can be selected as parent
+}) => {
+  // Updated initial form data structure to match the new API body fields
+  const initialFormData = {
     title: "",
-    articleCategory: "",
-    content: "",
-    author: "",
-    tags: "",
-    status: "published",
-    featured: "yes",
-    position: 1,
-  });
-  const [formErrors, setFormErrors] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
-
-  const userData = JSON.parse(localStorage.getItem("user") || "{}");
-  const accessToken = userData.accessToken;
-
-  useEffect(() => {
-    if (!accessToken) {
-      setError("Không tìm thấy access token. Vui lòng đăng nhập.");
-      return;
-    }
-
-    if (blogId) {
-      const fetchArticle = async () => {
-        try {
-          setLoading(true);
-          // Attempt to fetch single article by ID
-          const response = await fetch(
-            `http://localhost:3000/api/v1/article/${blogId}`,
-            {
-              credentials: "include",
-              headers: { Authorization: `Bearer ${accessToken}` },
-            }
-          );
-          const data = await response.json();
-          if (data.code === 200 && data.data) {
-            const article = data.data;
-            setFormData({
-              title: article.title,
-              articleCategory: article.articleCategory,
-              content: article.content,
-              author: article.author,
-              tags: article.tags,
-              status: article.status,
-              featured:
-                article.featured === "yes" || article.featured === "1"
-                  ? "yes"
-                  : "no",
-              position: article.position,
-            });
-          } else {
-            // Fallback: Fetch all articles and filter
-            const fallbackResponse = await fetch(
-              "http://localhost:3000/api/v1/article",
-              {
-                credentials: "include",
-                headers: { Authorization: `Bearer ${accessToken}` },
-              }
-            );
-            const fallbackData = await fallbackResponse.json();
-            if (fallbackData.code === 200) {
-              const article = fallbackData.data.find((a) => a._id === blogId);
-              if (article) {
-                setFormData({
-                  title: article.title,
-                  articleCategory: article.articleCategory,
-                  content: article.content,
-                  author: article.author,
-                  tags: article.tags,
-                  status: article.status,
-                  featured:
-                    article.featured === "yes" || article.featured === "1"
-                      ? "yes"
-                      : "no",
-                  position: article.position,
-                });
-              } else {
-                throw new Error("Không tìm thấy bài viết");
-              }
-            } else {
-              throw new Error(fallbackData.message || "Không thể tải bài viết");
-            }
-          }
-        } catch (err) {
-          setError(err.message || "Không thể tải bài viết");
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchArticle();
-    }
-  }, [blogId, accessToken]);
-
-  const validateForm = () => {
-    const errors = {};
-    if (!formData.title.trim() || formData.title.length < 5) {
-      errors.title = "Tiêu đề phải có ít nhất 5 ký tự";
-    }
-    if (!formData.articleCategory.trim()) {
-      errors.articleCategory = "Danh mục là bắt buộc";
-    }
-    if (!formData.content.trim() || formData.content.length < 20) {
-      errors.content = "Nội dung phải có ít nhất 20 ký tự";
-    }
-    if (!formData.author.trim()) {
-      errors.author = "Tác giả là bắt buộc";
-    }
-    if (formData.position < 1) {
-      errors.position = "Vị trí phải lớn hơn hoặc bằng 1";
-    }
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
+    description: "",
+    parent_id: "", // Use "" or null for no parent
+    status: "active", // Default status for new category
   };
 
+  const [formData, setFormData] = useState(initialFormData);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [isEditMode, setIsEditMode] = useState(false); // Effect to populate form data when categoryToEdit changes (entering edit mode)
+
+  useEffect(() => {
+    if (categoryToEdit) {
+      // Map existing category data (old structure) to the new form data structure
+      setFormData({
+        title: categoryToEdit.name || "", // Map name to title
+        description: categoryToEdit.description || "", // Assuming description might exist, default to empty
+        parent_id: categoryToEdit.parentId || "", // Map parentId to parent_id
+        status: categoryToEdit.status || "active",
+      });
+      setIsEditMode(true);
+    } else {
+      // Reset for add mode
+      setFormData(initialFormData);
+      setIsEditMode(false);
+    } // Reset error and loading states when modal opens or category changes
+    setError(null);
+    setLoading(false);
+  }, [categoryToEdit, isOpen]); // Depend on categoryToEdit and isOpen // Reset form when modal closes
+
+  useEffect(() => {
+    if (!isOpen) {
+      setFormData(initialFormData);
+      setError(null);
+      setLoading(false);
+    }
+  }, [isOpen]);
+
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    setFormErrors((prev) => ({ ...prev, [name]: null }));
+    const { name, value, type, checked } = e.target;
+    if (type === "checkbox") {
+      setFormData({
+        ...formData,
+        [name]: checked,
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value,
+      });
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validateForm()) return;
-
-    if (!accessToken) {
-      setError("Không tìm thấy access token. Vui lòng đăng nhập.");
-      return;
-    }
+    setLoading(true);
+    setError(null);
 
     try {
-      setLoading(true);
-      setError(null);
-      setSuccess(null);
+      const userData = JSON.parse(localStorage.getItem("user") || "{}");
+      if (!userData || !userData.accessToken) {
+        throw new Error("No access token found. Please log in.");
+      }
 
-      const url = blogId
-        ? `http://localhost:3000/api/v1/article/edit/${blogId}`
-        : "http://localhost:3000/api/v1/article/create";
+      const url = isEditMode
+        ? `http://localhost:3000/api/v1/product-category/edit/${categoryToEdit.id}`
+        : "http://localhost:3000/api/v1/product-category/create";
 
-      const method = blogId ? "PATCH" : "POST";
+      const method = isEditMode ? "PATCH" : "POST"; // Prepare the data payload matching the *new* API body structure
 
+      const payload = isEditMode
+        ? {
+            title: formData.title,
+            description: formData.description,
+            parent_id: formData.parent_id === "" ? null : formData.parent_id, // Send null if no parent selected
+            status: formData.status,
+          }
+        : {
+            title: formData.title,
+            description: formData.description,
+            parent_id: formData.parent_id === "" ? null : formData.parent_id, // Send null if no parent selected
+            status: formData.status,
+            position: "", // Silently include position as empty string for add mode
+          }; // Basic validation (add more as needed)
+
+      if (!payload.title) {
+        throw new Error("Tiêu đề danh mục là bắt buộc.");
+      } // Note: Backend validation should also catch required fields.
       const response = await fetch(url, {
-        method,
+        method: method,
         headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json", // Specify content type
+          // Consider adding Authorization header if using JWT/Bearer token
+          // 'Authorization': `Bearer ${userData.accessToken}`,
         },
-        body: JSON.stringify({
-          ...formData,
-          tags: formData.tags,
-          position: parseInt(formData.position),
-          featured: formData.featured === "yes" ? "yes" : "no",
-        }),
+        body: JSON.stringify(payload),
+        credentials: "include", // Make sure this is needed and handled server-side
       });
 
-      const data = await response.json();
-      if (data.code === 200) {
-        setSuccess(
-          blogId ? "Cập nhật bài viết thành công!" : "Tạo bài viết thành công!"
-        );
-        setTimeout(() => navigate("/blog"), 2000);
+      const result = await response.json();
+
+      if (result.code === 200) {
+        onSuccess(); // Notify parent component to refresh data
+        onClose(); // Close the modal
       } else {
-        throw new Error(data.message || "Không thể lưu bài viết");
+        // Improved error handling to display backend message if available
+        const errorMessage =
+          result.message ||
+          result.error?.message ||
+          `Failed to ${isEditMode ? "update" : "create"} category`;
+        throw new Error(errorMessage);
       }
     } catch (err) {
-      setError(err.message || "Không thể lưu bài viết");
+      console.error("API Error:", err);
+      setError(err.message || "Đã xảy ra lỗi khi thao tác danh mục.");
     } finally {
       setLoading(false);
     }
-  };
+  }; // Don't render the modal content if not open
 
-  if (error && !accessToken) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="alert alert-error">
-          <span>{error}</span>
-        </div>
-      </div>
-    );
+  if (!isOpen) {
+    return null;
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-5xl">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-primary mb-2">
-          {blogId ? "Sửa Bài Viết" : "Thêm Bài Viết"}
-        </h1>
-        <p className="text-lg text-base-content">
-          {blogId
-            ? "Chỉnh sửa nội dung bài viết"
-            : "Tạo bài viết mới cho hệ thống"}
-        </p>
-      </div>
-
-      {/* Notifications */}
-      {(success || error) && (
-        <div className="toast toast-top toast-end">
-          {success && (
-            <div className="alert alert-success">
-              <span>{success}</span>
-            </div>
-          )}
+    <div className="modal modal-open">
+      <div className="modal-box relative">
+        <button
+          className="btn btn-sm btn-circle absolute right-2 top-2"
+          onClick={onClose}
+          disabled={loading}
+        >
+          ✕
+        </button>
+        <h3 className="font-bold text-lg">
+          {isEditMode ? "Chỉnh sửa danh mục" : "Thêm danh mục mới"}
+        </h3>
+        <div className="py-4">
           {error && (
-            <div className="alert alert-error">
+            <div role="alert" className="alert alert-error mb-4">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="stroke-current shrink-0 h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
               <span>{error}</span>
             </div>
           )}
-        </div>
-      )}
-
-      {/* Form */}
-      <div className="card bg-base-100 shadow-xl">
-        <div className="card-body">
-          {loading ? (
-            <div className="flex justify-center items-center h-64">
-              <span className="loading loading-spinner loading-lg text-primary"></span>
+          <form onSubmit={handleSubmit}>
+            {/* Title */}
+            <div className="form-control mb-4">
+              <label className="label">
+                <span className="label-text">Tiêu đề Danh Mục</span>
+              </label>
+              <input
+                type="text"
+                name="title"
+                value={formData.title}
+                onChange={handleInputChange}
+                placeholder="Nhập tiêu đề danh mục"
+                className="input input-bordered w-full"
+                required
+                disabled={loading}
+              />
             </div>
-          ) : (
-            <form onSubmit={handleSubmit}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text font-semibold">Tiêu đề</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="title"
-                    value={formData.title}
-                    onChange={handleInputChange}
-                    className={`input input-bordered w-full ${
-                      formErrors.title ? "input-error" : ""
-                    }`}
-                    placeholder="Nhập tiêu đề bài viết"
-                  />
-                  {formErrors.title && (
-                    <span className="text-error text-sm mt-1">
-                      {formErrors.title}
-                    </span>
-                  )}
-                </div>
-
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text font-semibold">Danh mục</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="articleCategory"
-                    value={formData.articleCategory}
-                    onChange={handleInputChange}
-                    className={`input input-bordered w-full ${
-                      formErrors.articleCategory ? "input-error" : ""
-                    }`}
-                    placeholder="Nhập danh mục (ví dụ: Guide)"
-                  />
-                  {formErrors.articleCategory && (
-                    <span className="text-error text-sm mt-1">
-                      {formErrors.articleCategory}
-                    </span>
-                  )}
-                </div>
-
-                <div className="form-control md:col-span-2">
-                  <label className="label">
-                    <span className="label-text font-semibold">Nội dung</span>
-                  </label>
-                  <textarea
-                    name="content"
-                    value={formData.content}
-                    onChange={handleInputChange}
-                    className={`textarea textarea-bordered w-full h-96 ${
-                      formErrors.content ? "textarea-error" : ""
-                    }`}
-                    placeholder="Nhập nội dung bài viết"
-                  ></textarea>
-                  {formErrors.content && (
-                    <span className="text-error text-sm mt-1">
-                      {formErrors.content}
-                    </span>
-                  )}
-                </div>
-
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text font-semibold">Tác giả</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="author"
-                    value={formData.author}
-                    onChange={handleInputChange}
-                    className={`input input-bordered w-full ${
-                      formErrors.author ? "input-error" : ""
-                    }`}
-                    placeholder="Nhập tên tác giả"
-                  />
-                  {formErrors.author && (
-                    <span className="text-error text-sm mt-1">
-                      {formErrors.author}
-                    </span>
-                  )}
-                </div>
-
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text font-semibold">
-                      Thẻ (phân cách bằng dấu phẩy)
-                    </span>
-                  </label>
-                  <input
-                    type="text"
-                    name="tags"
-                    value={formData.tags}
-                    onChange={handleInputChange}
-                    className="input input-bordered w-full"
-                    placeholder="furniture,online,sell"
-                  />
-                </div>
-
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text font-semibold">Trạng thái</span>
-                  </label>
-                  <select
-                    name="status"
-                    value={formData.status}
-                    onChange={handleInputChange}
-                    className="select select-bordered w-full"
-                  >
-                    <option value="published">Published</option>
-                    <option value="active">Active</option>
-                    <option value="draft">Draft</option>
-                  </select>
-                </div>
-
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text font-semibold">Nổi bật</span>
-                  </label>
-                  <select
-                    name="featured"
-                    value={formData.featured}
-                    onChange={handleInputChange}
-                    className="select select-bordered w-full"
-                  >
-                    <option value="yes">Có</option>
-                    <option value="no">Không</option>
-                  </select>
-                </div>
-
-                <div className="form-control">
-                  <label className="label">
-                    <span className="label-text font-semibold">Vị trí</span>
-                  </label>
-                  <input
-                    type="number"
-                    name="position"
-                    value={formData.position}
-                    onChange={handleInputChange}
-                    className={`input input-bordered w-full ${
-                      formErrors.position ? "input-error" : ""
-                    }`}
-                    min="1"
-                  />
-                  {formErrors.position && (
-                    <span className="text-error text-sm mt-1">
-                      {formErrors.position}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-8 flex gap-4">
-                <button
-                  type="submit"
-                  className="btn btn-primary btn-lg"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <span className="loading loading-spinner"></span>
-                  ) : blogId ? (
-                    "Cập nhật"
-                  ) : (
-                    "Tạo"
-                  )}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-lg"
-                  onClick={() => navigate("/blog")}
-                >
-                  Hủy
-                </button>
-              </div>
-            </form>
-          )}
+            {/* Description */}
+            <div className="form-control mb-4">
+              <label className="label">
+                <span className="label-text">Mô tả</span>
+              </label>
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleInputChange}
+                placeholder="Nhập mô tả danh mục"
+                className="textarea textarea-bordered w-full"
+                disabled={loading}
+              />
+            </div>
+            {/* Status */}
+            <div className="form-control mb-4">
+              <label className="label">
+                <span className="label-text">Trạng thái</span>
+              </label>
+              <select
+                name="status"
+                value={formData.status}
+                onChange={handleInputChange}
+                className="select select-bordered w-full"
+                required
+                disabled={loading}
+              >
+                <option value="active">Kích hoạt</option>
+                <option value="inactive">Ngừng hoạt động</option>
+              </select>
+            </div>
+            {/* Parent Category */}
+            <div className="form-control mb-4">
+              <label className="label">
+                <span className="label-text">Danh mục cha</span>
+              </label>
+              <select
+                name="parent_id"
+                value={formData.parent_id}
+                onChange={handleInputChange}
+                className="select select-bordered w-full"
+                disabled={loading}
+              >
+                <option value="">-- Chọn danh mục cha (Không có) --</option>
+                {parentCategories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {/* Submit Button */}
+            <div className="modal-action">
+              <button
+                type="submit"
+                className={`btn btn-primary ${
+                  loading ? "opacity-50 cursor-not-allowed" : ""
+                }`}
+                disabled={loading}
+              >
+                {loading
+                  ? isEditMode
+                    ? "Đang cập nhật..."
+                    : "Đang thêm..."
+                  : isEditMode
+                  ? "Cập nhật"
+                  : "Thêm mới"}
+              </button>
+              <button
+                type="button" // Use type="button" to prevent form submission
+                className="btn"
+                onClick={onClose}
+                disabled={loading}
+              >
+                Hủy
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </div>
   );
 };
 
-export default AddEditBlog;
+export default AddEditCategory;

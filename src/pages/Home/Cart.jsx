@@ -32,7 +32,7 @@ function Cart() {
 
   const handleDeleteItem = async (productId) => {
     try {
-      const response = await axios.get(
+      const response = await axios.delete(
         `http://localhost:3000/api/v1/cart/delete/${productId}`,
         {
           withCredentials: true,
@@ -57,12 +57,13 @@ function Cart() {
 
   const handleUpdateQuantity = async (productId, quantity) => {
     try {
-      const response = await axios.get(
-        `http://localhost:3000/api/v1/cart/update/${productId}/${quantity}`,
+      const response = await axios.patch(
+        `http://localhost:3000/api/v1/cart/update/${productId}`,
+        { quantity },
         { withCredentials: true }
       );
 
-      if (response.data.success) {
+      if (response.data.status === "success") {
         const updatedItems = cart.items.map((item) =>
           item.product_id === productId
             ? { ...item, quantity, totalPrice: item.priceNew * quantity }
