@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { FaEdit, FaTrashAlt, FaPlus } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
-import { fetchCategories } from "./fetchCategories"; // Import the new utility
+import { fetchCategories } from "./fetchCategories";
 
+// --- Currency Formatter ---
 const formatCurrency = (amount) => {
   if (typeof amount !== "number" && typeof amount !== "string") return "N/A";
   const numberAmount = typeof amount === "string" ? parseFloat(amount) : amount;
@@ -12,111 +13,196 @@ const formatCurrency = (amount) => {
     currency: "VND",
   });
 };
+// ---------------------------------
 
 const ProductManagement = () => {
+  // --- State Variables ---
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Category State
   const [allCategories, setAllCategories] = useState([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState("");
+  const [selectedCategorySlug, setSelectedCategorySlug] = useState("");
   const [categoryError, setCategoryError] = useState(null);
+
+  // Filtering State
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1); // New state for total pages
+
+  // Selection State
   const [selectedProductIds, setSelectedProductIds] = useState([]);
+
+  // Modal/Confirmation State
   const [confirmStatusChange, setConfirmStatusChange] = useState(null);
   const [confirmBulkStatus, setConfirmBulkStatus] = useState(null);
   const [productToDeleteId, setProductToDeleteId] = useState(null);
-  const [statusFilter, setStatusFilter] = useState("all");
+  // ---------------------------------
 
   const navigate = useNavigate();
 
+  // --- Fetch Categories ---
   const fetchCategoriesData = useCallback(async () => {
     setCategoryError(null);
-    setLoading(true);
     try {
       const categories = await fetchCategories();
       setAllCategories(categories);
     } catch (e) {
       setCategoryError(`Lỗi khi tải danh mục: ${e.message}`);
       setAllCategories([]);
-    } finally {
-      setLoading(false);
     }
   }, []);
 
+  // --- Fetch Products ---
   const fetchProducts = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setProducts([]);
+
     try {
       const userData = JSON.parse(localStorage.getItem("user") || "{}");
       if (!userData || !userData.accessToken) {
         throw new Error("No access token found. Please log in.");
       }
 
-      const response = await fetch("http://localhost:3000/api/v1/product", {
+      // Build URL based on whether a category slug is selected
+      const queryParams = new URLSearchParams();
+      queryParams.append("page", currentPage);
+      queryParams.append("limit", itemsPerPage);
+
+      const baseUrl = selectedCategorySlug
+        ? `http://localhost:3000/api/v1/products/${selectedCategorySlug}`
+        : "http://localhost:3000/api/v1/products/";
+      const url = `${baseUrl}?${queryParams.toString()}`;
+
+      console.log("Fetching products from URL:", url);
+
+      const response = await fetch(url, {
         credentials: "include",
         headers: {
           Authorization: `Bearer ${userData.accessToken}`,
         },
       });
-      if (!response.ok) throw new Error(`Lỗi HTTP: ${response.status}`);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          `Lỗi HTTP: ${response.status} - ${
+            errorData?.message || response.statusText
+          }`
+        );
+      }
+
       const result = await response.json();
+      console.log("Raw API product response:", JSON.stringify(result, null, 2));
+
+      let productList = [];
+      let newTotalPages = 1;
+
+      // Handle response for category filter API
       if (
+        result.success === true &&
+        result.data &&
+        Array.isArray(result.data.products)
+      ) {
+        productList = result.data.products;
+        newTotalPages = result.data.pagination?.totalPage || 1;
+      }
+      // Handle response for general products API
+      else if (
         Array.isArray(result) &&
         result.length > 0 &&
         result[0]?.code === 200 &&
         Array.isArray(result[0]?.data)
       ) {
-        setProducts(result[0].data);
+        productList = result[0].data;
+        // No totalPage provided, keep default
+        newTotalPages = 1;
       } else {
-        setProducts([]);
+        console.warn(
+          "Unexpected API response format or empty data array:",
+          result
+        );
+        throw new Error("Định dạng dữ liệu sản phẩm không hợp lệ.");
       }
+
+      setProducts(productList);
+      setTotalPages(newTotalPages);
+      console.log(
+        "Fetched products count:",
+        productList.length,
+        "Current Page:",
+        currentPage,
+        "Total Pages:",
+        newTotalPages
+      );
     } catch (err) {
+      console.error("Error fetching products:", err);
       setError(err.message || "Lỗi tải sản phẩm.");
       setProducts([]);
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentPage, itemsPerPage, selectedCategorySlug]);
 
-  useEffect(() => {
-    fetchCategoriesData();
-    fetchProducts();
-  }, [fetchCategoriesData, fetchProducts]);
-
+  // --- Frontend Filtering for Status ---
   const filteredProducts = useMemo(() => {
     let filtered = products;
-
-    if (selectedCategoryId) {
-      filtered = filtered.filter(
-        (p) => p.product_category_id === selectedCategoryId
-      );
-    }
-
     if (statusFilter === "active") {
       filtered = filtered.filter((p) => p.status === "active");
     } else if (statusFilter === "inactive") {
       filtered = filtered.filter((p) => p.status === "inactive");
     }
-
     return filtered;
-  }, [products, selectedCategoryId, statusFilter]);
+  }, [products, statusFilter]);
 
+  // --- Effects ---
+  useEffect(() => {
+    fetchCategoriesData();
+  }, [fetchCategoriesData]);
+
+  useEffect(() => {
+    fetchProducts();
+    setSelectedProductIds([]);
+  }, [fetchProducts]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCategorySlug, statusFilter]);
+
+  // --- Filter/Pagination Handlers ---
   const handleCategoryChange = (event) => {
-    setSelectedCategoryId(event.target.value);
+    setSelectedCategorySlug(event.target.value);
   };
 
   const handleStatusFilterChange = (status) => {
     setStatusFilter(status);
   };
 
-  const handleEdit = (productId) => {
-    console.log("Navigating to edit product:", productId);
-    navigate(`/admin/products/edit/${productId}`);
+  const handlePageChange = (page) => {
+    if (page > 0 && page <= totalPages && !loading) {
+      setCurrentPage(page);
+    }
   };
 
-  const handleAdd = () => {
+  // --- Action Handlers ---
+  const handleEdit = useCallback(
+    (productId) => {
+      console.log("Navigating to edit product:", productId);
+      navigate(`/admin/products/edit/${productId}`);
+    },
+    [navigate]
+  );
+
+  const handleAdd = useCallback(() => {
     console.log("Navigating to add product");
     navigate("/admin/products/add");
-  };
+  }, [navigate]);
 
   const openConfirmDeleteModal = (productId) => {
     setProductToDeleteId(productId);
@@ -156,6 +242,7 @@ const ProductManagement = () => {
       );
       fetchProducts();
       setProductToDeleteId(null);
+      setSelectedProductIds([]);
     } catch (err) {
       console.error("Lỗi khi xóa sản phẩm:", err);
       setError(err.message || "Đã xảy ra lỗi khi xóa sản phẩm.");
@@ -183,8 +270,8 @@ const ProductManagement = () => {
     if (!confirmStatusChange) return;
     setLoading(true);
     setError(null);
+    const { id, newStatus } = confirmStatusChange;
     try {
-      const { id, newStatus } = confirmStatusChange;
       const userData = JSON.parse(localStorage.getItem("user") || "{}");
       if (!userData || !userData.accessToken) {
         throw new Error("No access token found. Please log in.");
@@ -197,6 +284,7 @@ const ProductManagement = () => {
           credentials: "include",
           headers: {
             "Content-Type": "application/json",
+            // Authorization: `Bearer ${userData.accessToken}`,
           },
           body: JSON.stringify({ status: newStatus }),
         }
@@ -226,7 +314,8 @@ const ProductManagement = () => {
   const openConfirmBulkModal = (status) => {
     if (selectedProductIds.length === 0) {
       setError("Vui lòng chọn ít nhất một sản phẩm.");
-      return;
+      const timer = setTimeout(() => setError(null), 3000);
+      return () => clearTimeout(timer);
     }
     setConfirmBulkStatus(status);
   };
@@ -235,6 +324,9 @@ const ProductManagement = () => {
     if (!confirmBulkStatus || selectedProductIds.length === 0) return;
     setLoading(true);
     setError(null);
+    const statusToSet = confirmBulkStatus;
+    const idsToChange = [...selectedProductIds];
+
     try {
       const userData = JSON.parse(localStorage.getItem("user") || "{}");
       if (!userData || !userData.accessToken) {
@@ -251,9 +343,9 @@ const ProductManagement = () => {
             Authorization: `Bearer ${userData.accessToken}`,
           },
           body: JSON.stringify({
-            ids: selectedProductIds,
+            ids: idsToChange,
             key: "status",
-            value: confirmBulkStatus,
+            value: statusToSet,
           }),
         }
       );
@@ -267,8 +359,8 @@ const ProductManagement = () => {
       }
       setProducts((prevProducts) =>
         prevProducts.map((product) =>
-          selectedProductIds.includes(product._id)
-            ? { ...product, status: confirmBulkStatus }
+          idsToChange.includes(product._id)
+            ? { ...product, status: statusToSet }
             : product
         )
       );
@@ -284,11 +376,24 @@ const ProductManagement = () => {
     }
   }, [confirmBulkStatus, selectedProductIds]);
 
+  // --- Rendered Output ---
+  console.log("Pagination Check:", {
+    currentPage,
+    totalPages,
+    loading,
+    error,
+    productsCount: filteredProducts.length,
+    itemsPerPage,
+  });
+
+  const isLastPage = currentPage >= totalPages;
+
   return (
     <div className="p-4 md:p-6">
       <h1 className="text-3xl font-bold text-primary">📦 Quản lý sản phẩm</h1>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 mt-6 gap-4">
         <div className="flex flex-col md:flex-row flex-wrap gap-2 w-full md:w-auto">
+          {/* Category Filter */}
           <div className="form-control w-full md:w-auto md:min-w-[250px]">
             <label className="label pt-0">
               <span className="label-text">Lọc theo danh mục</span>
@@ -299,7 +404,7 @@ const ProductManagement = () => {
                   ? "select-disabled opacity-70"
                   : ""
               }`}
-              value={selectedCategoryId}
+              value={selectedCategorySlug}
               onChange={handleCategoryChange}
               disabled={
                 loading || !!categoryError || allCategories.length === 0
@@ -307,7 +412,7 @@ const ProductManagement = () => {
             >
               <option value="">-- Tất cả danh mục --</option>
               {allCategories.map((category) => (
-                <option key={category.id} value={category.id}>
+                <option key={category.id} value={category.slug}>
                   {category.name}
                 </option>
               ))}
@@ -322,6 +427,7 @@ const ProductManagement = () => {
             )}
           </div>
 
+          {/* Status Filter */}
           <div className="form-control w-full md:w-auto md:min-w-[180px]">
             <label className="label pt-0">
               <span className="label-text">Lọc theo trạng thái</span>
@@ -338,6 +444,7 @@ const ProductManagement = () => {
             </select>
           </div>
 
+          {/* Add Product Button */}
           <div className="form-control w-full md:w-auto self-end">
             <label className="label pt-0 hidden md:block">
               <span className="label-text"> </span>
@@ -353,8 +460,9 @@ const ProductManagement = () => {
         </div>
       </div>
 
+      {/* Bulk Actions Bar */}
       {selectedProductIds.length > 0 && (
-        <div className="mb-4 flex items-center gap-2">
+        <div className="mb-4 flex flex-wrap items-center gap-2">
           <span className="text-sm opacity-70">
             {selectedProductIds.length} sản phẩm đã chọn
           </span>
@@ -372,9 +480,17 @@ const ProductManagement = () => {
           >
             Hoạt động
           </button>
+          <button
+            className="btn btn-sm btn-outline"
+            onClick={() => setSelectedProductIds([])}
+            disabled={loading}
+          >
+            Hủy chọn
+          </button>
         </div>
       )}
 
+      {/* Loading and Error Messages */}
       {loading && (
         <div className="flex justify-center items-center py-10">
           <span className="loading loading-spinner loading-lg text-primary"></span>
@@ -401,6 +517,8 @@ const ProductManagement = () => {
           </span>
         </div>
       )}
+
+      {/* Product Table */}
       {!loading && !error && (
         <div className="overflow-x-auto">
           <table className="table w-full">
@@ -418,10 +536,10 @@ const ProductManagement = () => {
                       )
                     }
                     checked={
-                      selectedProductIds.length === filteredProducts.length &&
-                      filteredProducts.length > 0
+                      filteredProducts.length > 0 &&
+                      selectedProductIds.length === filteredProducts.length
                     }
-                    disabled={filteredProducts.length === 0}
+                    disabled={filteredProducts.length === 0 || loading}
                   />
                 </th>
                 <th>Ảnh</th>
@@ -437,9 +555,9 @@ const ProductManagement = () => {
               {filteredProducts.length === 0 && !loading && (
                 <tr>
                   <td colSpan="8" className="text-center py-4">
-                    {products.length === 0
-                      ? "Không có sản phẩm nào."
-                      : "Không tìm thấy sản phẩm phù hợp."}
+                    {selectedCategorySlug || statusFilter !== "all"
+                      ? "Không tìm thấy sản phẩm phù hợp với bộ lọc."
+                      : "Không có sản phẩm nào."}
                   </td>
                 </tr>
               )}
@@ -451,24 +569,53 @@ const ProductManagement = () => {
                       className="checkbox"
                       checked={selectedProductIds.includes(product._id)}
                       onChange={() => handleSelectProduct(product._id)}
+                      disabled={loading}
                     />
                   </th>
                   <td>
                     <div className="avatar">
-                      <div className="mask mask-squircle w-12 h-12">
+                      <div className="mask mask-squircle w-12 h-12 overflow-hidden relative">
                         <img
                           src={product.thumbnail || "/placeholder.png"}
-                          alt={product.title}
+                          alt={`Ảnh sản phẩm ${product.title || "đang tải"}`}
                           onError={(e) => {
-                            e.target.src = "/placeholder.png";
+                            if (e.target.src.endsWith("/placeholder.png")) {
+                              e.target.onerror = null;
+                              e.target.style.display = "none";
+                              const parent = e.target.parentElement;
+                              if (parent && parent.classList.contains("mask")) {
+                                parent.classList.add(
+                                  "bg-gray-200",
+                                  "flex",
+                                  "items-center",
+                                  "justify-center",
+                                  "text-xs",
+                                  "text-gray-500",
+                                  "break-words",
+                                  "p-1",
+                                  "text-center"
+                                );
+                                parent.innerText = "Không ảnh";
+                                parent.style.overflow = "visible";
+                              }
+                            } else {
+                              e.target.src = "/placeholder.png";
+                            }
                           }}
                         />
+                        {!product.thumbnail && (
+                          <div className="absolute inset-0 bg-gray-200 flex items-center justify-center text-xs text-gray-500 break-words p-1 text-center">
+                            Không ảnh
+                          </div>
+                        )}
                       </div>
                     </div>
                   </td>
                   <td>
                     <div className="font-bold">{product.title}</div>
-                    <div className="text-sm opacity-70">ID: {product._id}</div>
+                    <div className="text-sm opacity-70 truncate max-w-[150px]">
+                      ID: {product._id}
+                    </div>
                   </td>
                   <td>{formatCurrency(product.price)}</td>
                   <td className="font-semibold text-accent">
@@ -499,17 +646,20 @@ const ProductManagement = () => {
                         className="btn btn-sm btn-info btn-outline"
                         onClick={() => handleEdit(product._id)}
                         aria-label={`Chỉnh sửa ${product.title}`}
+                        disabled={loading}
                       >
                         <FaEdit />
                       </button>
-                      <button
-                        className="btn btn-sm btn-error btn-outline"
-                        onClick={() => openConfirmDeleteModal(product._id)}
-                        aria-label={`Xóa ${product.title}`}
-                        disabled={loading}
-                      >
-                        <FaTrashAlt />
-                      </button>
+                      {!product.deleted && (
+                        <button
+                          className="btn btn-sm btn-error btn-outline"
+                          onClick={() => openConfirmDeleteModal(product._id)}
+                          aria-label={`Xóa ${product.title}`}
+                          disabled={loading}
+                        >
+                          <FaTrashAlt />
+                        </button>
+                      )}
                       <button
                         className="btn btn-sm btn-outline"
                         onClick={() =>
@@ -528,6 +678,34 @@ const ProductManagement = () => {
         </div>
       )}
 
+      {/* Pagination Controls */}
+      {!loading && !error && filteredProducts.length > 0 && (
+        <div className="flex justify-center mt-6">
+          <div className="join">
+            <button
+              className="join-item btn"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1 || loading}
+              aria-label="Trang trước"
+            >
+              « Trang trước
+            </button>
+            <button className="join-item btn pointer-events-none" disabled>
+              Trang {currentPage} / {totalPages}
+            </button>
+            <button
+              className="join-item btn"
+              disabled={loading || isLastPage}
+              onClick={() => handlePageChange(currentPage + 1)}
+              aria-label="Trang sau"
+            >
+              Trang sau »
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modals */}
       <input
         type="checkbox"
         id="confirm-status-modal"
@@ -535,34 +713,40 @@ const ProductManagement = () => {
         checked={!!confirmStatusChange}
         onChange={() => setConfirmStatusChange(null)}
       />
-      <div className="modal">
-        <div className="modal-box">
-          <h3 className="font-bold text-lg">Xác nhận thay đổi trạng thái</h3>
-          <p className="py-4">
-            Bạn có chắc chắn muốn{" "}
-            {confirmStatusChange?.newStatus === "active"
-              ? "kích hoạt"
-              : "ngừng hoạt động"}{" "}
-            sản phẩm này?
-          </p>
-          <div className="modal-action">
-            <button
-              className="btn btn-primary"
-              onClick={toggleProductStatus}
-              disabled={loading}
-            >
-              Xác nhận
-            </button>
-            <button
-              className="btn"
-              onClick={() => setConfirmStatusChange(null)}
-              disabled={loading}
-            >
-              Hủy
-            </button>
+      {!!confirmStatusChange && (
+        <div className="modal modal-bottom sm:modal-middle">
+          <div className="modal-box">
+            <h3 className="font-bold text-lg">Xác nhận thay đổi trạng thái</h3>
+            <p className="py-4">
+              Bạn có chắc chắn muốn{" "}
+              {confirmStatusChange?.newStatus === "active"
+                ? "kích hoạt"
+                : "ngừng hoạt động"}{" "}
+              sản phẩm này?
+            </p>
+            <div className="modal-action">
+              <button
+                className="btn btn-primary"
+                onClick={toggleProductStatus}
+                disabled={loading}
+              >
+                Xác nhận
+              </button>
+              <button
+                className="btn"
+                onClick={() => setConfirmStatusChange(null)}
+                disabled={loading}
+              >
+                Hủy
+              </button>
+            </div>
           </div>
+          <label
+            className="modal-backdrop"
+            htmlFor="confirm-status-modal"
+          ></label>
         </div>
-      </div>
+      )}
 
       <input
         type="checkbox"
@@ -571,34 +755,41 @@ const ProductManagement = () => {
         checked={!!confirmBulkStatus}
         onChange={() => setConfirmBulkStatus(null)}
       />
-      <div className="modal">
-        <div className="modal-box">
-          <h3 className="font-bold text-lg">
-            Xác nhận thay đổi trạng thái hàng loạt
-          </h3>
-          <p className="py-4">
-            Bạn có chắc chắn muốn đặt trạng thái của {selectedProductIds.length}{" "}
-            sản phẩm thành "
-            {confirmBulkStatus === "active" ? "Hoạt động" : "Ngừng hoạt động"}"?
-          </p>
-          <div className="modal-action">
-            <button
-              className="btn btn-primary"
-              onClick={bulkChangeStatus}
-              disabled={loading}
-            >
-              Xác nhận
-            </button>
-            <button
-              className="btn"
-              onClick={() => setConfirmBulkStatus(null)}
-              disabled={loading}
-            >
-              Hủy
-            </button>
+      {!!confirmBulkStatus && (
+        <div className="modal modal-bottom sm:modal-middle">
+          <div className="modal-box">
+            <h3 className="font-bold text-lg">
+              Xác nhận thay đổi trạng thái hàng loạt
+            </h3>
+            <p className="py-4">
+              Bạn có chắc chắn muốn đặt trạng thái của{" "}
+              {selectedProductIds.length} sản phẩm thành "
+              {confirmBulkStatus === "active" ? "Hoạt động" : "Ngừng hoạt động"}
+              "?
+            </p>
+            <div className="modal-action">
+              <button
+                className="btn btn-primary"
+                onClick={bulkChangeStatus}
+                disabled={loading}
+              >
+                Xác nhận
+              </button>
+              <button
+                className="btn"
+                onClick={() => setConfirmBulkStatus(null)}
+                disabled={loading}
+              >
+                Hủy
+              </button>
+            </div>
           </div>
+          <label
+            className="modal-backdrop"
+            htmlFor="confirm-bulk-modal"
+          ></label>
         </div>
-      </div>
+      )}
 
       <input
         type="checkbox"
@@ -607,38 +798,44 @@ const ProductManagement = () => {
         checked={!!productToDeleteId}
         onChange={() => setProductToDeleteId(null)}
       />
-      <div className="modal">
-        <div className="modal-box">
-          <h3 className="font-bold text-lg text-error">
-            Xác nhận xóa sản phẩm
-          </h3>
-          <p className="py-4">
-            Bạn có chắc chắn muốn xóa sản phẩm có ID:{" "}
-            <span className="font-semibold">{productToDeleteId}</span> không?
-            <br />
-            Lưu ý: Hành động này thường là "soft delete" (chỉ ẩn sản phẩm khỏi
-            trang hiển thị) thay vì xóa vĩnh viễn khỏi cơ sở dữ liệu.
-          </p>
-          <div className="modal-action">
-            <button
-              className="btn btn-error"
-              onClick={confirmDeleteProduct}
-              disabled={loading}
-              aria-label="Xác nhận xóa sản phẩm đã chọn"
-            >
-              Xóa
-            </button>
-            <button
-              className="btn"
-              onClick={() => setProductToDeleteId(null)}
-              disabled={loading}
-              aria-label="Hủy xóa sản phẩm"
-            >
-              Hủy
-            </button>
+      {!!productToDeleteId && (
+        <div className="modal modal-bottom sm:modal-middle">
+          <div className="modal-box">
+            <h3 className="font-bold text-lg text-error">
+              Xác nhận xóa sản phẩm
+            </h3>
+            <p className="py-4">
+              Bạn có chắc chắn muốn xóa sản phẩm có ID:{" "}
+              <span className="font-semibold">{productToDeleteId}</span> không?
+              <br />
+              Lưu ý: Hành động này thường là "soft delete" (chỉ ẩn sản phẩm khỏi
+              trang hiển thị) thay vì xóa vĩnh viễn khỏi cơ sở dữ liệu.
+            </p>
+            <div className="modal-action">
+              <button
+                className="btn btn-error"
+                onClick={confirmDeleteProduct}
+                disabled={loading}
+                aria-label="Xác nhận xóa sản phẩm đã chọn"
+              >
+                Xóa
+              </button>
+              <button
+                className="btn"
+                onClick={() => setProductToDeleteId(null)}
+                disabled={loading}
+                aria-label="Hủy xóa sản phẩm"
+              >
+                Hủy
+              </button>
+            </div>
           </div>
+          <label
+            className="modal-backdrop"
+            htmlFor="confirm-delete-modal"
+          ></label>
         </div>
-      </div>
+      )}
     </div>
   );
 };

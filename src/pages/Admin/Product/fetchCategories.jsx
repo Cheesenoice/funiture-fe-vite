@@ -5,7 +5,7 @@ export const flattenCategories = (categories) => {
     const displayName = parentName
       ? `${parentName} > ${category.name}`
       : category.name;
-    flatList.push({ id: category.id, name: displayName });
+    flatList.push({ id: category.id, name: displayName, slug: category.slug });
     if (category.children && category.children.length > 0) {
       category.children.forEach((sub) => processCategory(sub, category.name));
     }
