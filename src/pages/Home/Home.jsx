@@ -15,8 +15,7 @@ function Home() {
       <Blog />
       <Collection />
       <ProductCarousel />
-      <ProductList />
-      {/* Chat Button and Modal */}
+      <ProductList limit={4} filter="all" />
       <div className="fixed bottom-6 right-6 z-50">
         <SearchAiModal />
       </div>

@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Footer from "./components/Layout/Footer/Footer";
 import Home from "./pages/Home/Home";
 import Login from "./pages/Home/Login/Login";
+import ResetPassword from "./pages/Home/Login/ResetPassword";
 import AdminLogin from "./pages/Home/Login/AdminLogin";
 import ProductCollection from "./pages/Home/ProductCollection";
 import ProductDetail from "./pages/Home/ProductDetail";
@@ -17,6 +18,7 @@ import AdminDashboard from "./pages/Admin/AdminDashboard";
 import UserManagement from "./pages/Admin/User/UserManagement";
 import UserOrder from "./pages/Admin/User/UserOrder";
 import ProductManagement from "./pages/Admin/Product/ProductManagement";
+import FeaturedProduct from "./pages/Admin/Product/FeaturedProduct";
 import AddEditProduct from "./pages/Admin/Product/AddEditProduct";
 import CategoryManagement from "./pages/Admin/Category/CategoryManagement";
 import OrderManagement from "./pages/Admin/Order/OrderManagement";
@@ -34,6 +36,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/account" element={<Profile />} />
@@ -43,7 +46,10 @@ function App() {
           <Route path="/search" element={<SearchAi />} />
           <Route path="/thank-you" element={<ThankYou />} />
           <Route path="/checkout" element={<Checkout />} />
-          <Route path="/productscollection" element={<ProductCollection />} />
+          <Route
+            path="/productscollection"
+            element={<ProductCollection filter="all" />}
+          />
           <Route
             path="/productscollection/new"
             element={<ProductCollection filter="new" />}
@@ -57,6 +63,10 @@ function App() {
           <Route
             path="/productscollection/category/:categoryDescription"
             element={<ProductCollection filter="category" />}
+          />
+          <Route
+            path="/productscollection/search/:keyword"
+            element={<ProductCollection />}
           />
           <Route path="/blog/:slug" element={<BlogDetail />} />
 
@@ -72,6 +82,7 @@ function App() {
             <Route path="users" element={<UserManagement />} />
             <Route path="users/:userId" element={<UserOrder />} />
             <Route path="products" element={<ProductManagement />} />
+            <Route path="products/featured" element={<FeaturedProduct />} />
             <Route path="products/add" element={<AddEditProduct />} />
             <Route
               path="products/edit/:productId"

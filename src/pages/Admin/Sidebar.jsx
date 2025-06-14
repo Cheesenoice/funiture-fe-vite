@@ -28,6 +28,7 @@ const Sidebar = () => {
       label: "Sản phẩm",
       path: "/admin/products",
       children: [
+        { label: "Featured Product", path: "/admin/products/featured" },
         { label: "Product List", path: "/admin/products" },
         { label: "Add Product", path: "/admin/products/add" },
       ],
