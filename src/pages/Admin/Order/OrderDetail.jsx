@@ -156,9 +156,8 @@ const OrderDetail = () => {
     );
   };
 
-  const isCanceled = () => {
-    return getLatestStatus() === "Canceled";
-  };
+  const isCanceled = () =>
+    ["Canceled", "Canceled by user"].includes(getLatestStatus());
 
   // Determine if a status is completed
   const isStatusCompleted = (status) => {

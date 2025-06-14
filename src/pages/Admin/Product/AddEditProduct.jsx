@@ -26,6 +26,9 @@ const AddEditProduct = () => {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState(null);
   const [categoryError, setCategoryError] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [isUrlMode, setIsUrlMode] = useState(false);
 
   // Load Categories using fetchCategories
   useEffect(() => {
@@ -83,6 +86,8 @@ const AddEditProduct = () => {
           position: Number(productData.position) || 0,
           featured: String(productData.featured) || "0",
         });
+        setPreviewUrl(productData.thumbnail || null);
+        setIsUrlMode(!!productData.thumbnail); // Set URL mode if thumbnail exists
       } else {
         throw new Error(
           "Định dạng dữ liệu trả về không hợp lệ từ API chi tiết."
@@ -99,6 +104,59 @@ const AddEditProduct = () => {
   useEffect(() => {
     fetchProductData();
   }, [fetchProductData]);
+
+  // Handle File Selection
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) {
+      setSelectedFile(null);
+      setPreviewUrl(formData.thumbnail || null);
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setError("Vui lòng chọn file hình ảnh!");
+      setSelectedFile(null);
+      setPreviewUrl(formData.thumbnail || null);
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setError("File quá lớn, vui lòng chọn file dưới 10MB!");
+      setSelectedFile(null);
+      setPreviewUrl(formData.thumbnail || null);
+      return;
+    }
+
+    setSelectedFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
+    setFormData((prev) => ({ ...prev, thumbnail: "" })); // Clear thumbnail URL
+    setError(null);
+  };
+
+  // Handle URL Input Change
+  const handleUrlChange = (e) => {
+    const { value } = e.target;
+    setFormData((prev) => ({ ...prev, thumbnail: value }));
+    setPreviewUrl(value || null);
+    setSelectedFile(null); // Clear selected file
+    setError(null);
+  };
+
+  // Handle Remove Image
+  const handleRemoveImage = () => {
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setFormData((prev) => ({ ...prev, thumbnail: "" }));
+  };
+
+  // Toggle Input Mode
+  const toggleInputMode = () => {
+    setIsUrlMode(!isUrlMode);
+    setSelectedFile(null);
+    setPreviewUrl(formData.thumbnail || null);
+    setError(null);
+  };
 
   // Handle Form Input Change
   const handleChange = (e) => {
@@ -125,8 +183,41 @@ const AddEditProduct = () => {
     setError(null);
     setSubmitLoading(true);
 
+    let thumbnailUrl = formData.thumbnail;
+
+    // Upload file to Cloudinary if a new file is selected
+    if (selectedFile) {
+      const formDataUpload = new FormData();
+      formDataUpload.append("file", selectedFile);
+      formDataUpload.append("upload_preset", "cmzggqqw");
+      formDataUpload.append("folder", "furniture_products");
+
+      try {
+        const res = await fetch(
+          "https://api.cloudinary.com/v1_1/dgxjlc8zt/image/upload",
+          {
+            method: "POST",
+            body: formDataUpload,
+          }
+        );
+
+        if (!res.ok) {
+          throw new Error(`Upload thất bại: ${res.status}`);
+        }
+
+        const data = await res.json();
+        thumbnailUrl = data.secure_url;
+      } catch (error) {
+        console.error("Upload lỗi:", error);
+        setError(`Upload ảnh thất bại: ${error.message}`);
+        setSubmitLoading(false);
+        return;
+      }
+    }
+
     const payload = {
       ...formData,
+      thumbnail: thumbnailUrl,
       price: formData.price === "" ? 0 : Number(formData.price),
       stock: formData.stock === "" ? 0 : Number(formData.stock),
       discountPercentage:
@@ -341,25 +432,50 @@ const AddEditProduct = () => {
 
         <div className="form-control">
           <label className="label">
-            <span className="label-text font-semibold">Link ảnh đại diện</span>
+            <span className="label-text font-semibold">Ảnh đại diện</span>
           </label>
-          <input
-            type="url"
-            name="thumbnail"
-            value={formData.thumbnail}
-            onChange={handleChange}
-            placeholder="https://example.com/image.jpg"
-            className="input input-bordered w-full"
-          />
-          {formData.thumbnail && (
-            <div className="mt-2">
+          <div className="flex items-center gap-2">
+            <input
+              type={isUrlMode ? "url" : "file"}
+              accept={isUrlMode ? undefined : "image/*"}
+              name="thumbnail"
+              value={isUrlMode ? formData.thumbnail : undefined}
+              onChange={isUrlMode ? handleUrlChange : handleFileChange}
+              placeholder={
+                isUrlMode
+                  ? "Nhập link ảnh (https://example.com/image.jpg)"
+                  : undefined
+              }
+              className={
+                isUrlMode
+                  ? "input input-bordered w-full"
+                  : "file-input file-input-bordered w-full"
+              }
+            />
+            <button
+              type="button"
+              onClick={toggleInputMode}
+              className="btn btn-sm btn-outline"
+            >
+              {isUrlMode ? "Chọn File" : "Nhập URL"}
+            </button>
+          </div>
+          {previewUrl && (
+            <div className="relative mt-2 w-24 h-24">
               <img
-                src={formData.thumbnail}
+                src={previewUrl}
                 alt="Thumbnail Preview"
                 className="w-24 h-24 object-cover rounded border"
                 onError={(e) => (e.target.style.display = "none")}
                 onLoad={(e) => (e.target.style.display = "block")}
               />
+              <button
+                type="button"
+                onClick={handleRemoveImage}
+                className="absolute top-0 right-0 btn btn-xs btn-circle btn-error"
+              >
+                <FaTimes />
+              </button>
             </div>
           )}
         </div>

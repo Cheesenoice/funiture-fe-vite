@@ -25,6 +25,7 @@ const ProductManagement = () => {
   const [allCategories, setAllCategories] = useState([]);
   const [selectedCategorySlug, setSelectedCategorySlug] = useState("");
   const [categoryError, setCategoryError] = useState(null);
+  const [currentCategory, setCurrentCategory] = useState(null);
 
   // Filtering State
   const [statusFilter, setStatusFilter] = useState("all");
@@ -32,7 +33,7 @@ const ProductManagement = () => {
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
-  const [totalPages, setTotalPages] = useState(1); // New state for total pages
+  const [totalPages, setTotalPages] = useState(1);
 
   // Selection State
   const [selectedProductIds, setSelectedProductIds] = useState([]);
@@ -92,7 +93,7 @@ const ProductManagement = () => {
         const errorData = await response.json();
         throw new Error(
           `Lỗi HTTP: ${response.status} - ${
-            errorData?.message || response.statusText
+            errorData[0]?.message || response.statusText
           }`
         );
       }
@@ -100,51 +101,36 @@ const ProductManagement = () => {
       const result = await response.json();
       console.log("Raw API product response:", JSON.stringify(result, null, 2));
 
-      let productList = [];
-      let newTotalPages = 1;
-
-      // Handle response for category filter API
+      // Handle unified response format
       if (
-        result.success === true &&
-        result.data &&
-        Array.isArray(result.data.products)
-      ) {
-        productList = result.data.products;
-        newTotalPages = result.data.pagination?.totalPage || 1;
-      }
-      // Handle response for general products API
-      else if (
         Array.isArray(result) &&
         result.length > 0 &&
         result[0]?.code === 200 &&
         Array.isArray(result[0]?.data)
       ) {
-        productList = result[0].data;
-        // No totalPage provided, keep default
-        newTotalPages = 1;
-      } else {
-        console.warn(
-          "Unexpected API response format or empty data array:",
-          result
+        const { data, page, limit, totalPages, category } = result[0];
+        setProducts(data);
+        setCurrentCategory(category);
+        setCurrentPage(parseInt(page) || 1);
+        setTotalPages(parseInt(totalPages) || 1);
+        console.log(
+          "Fetched products count:",
+          data.length,
+          "Current Page:",
+          page,
+          "Total Pages:",
+          totalPages
         );
+      } else {
+        console.warn("Unexpected API response format:", result);
         throw new Error("Định dạng dữ liệu sản phẩm không hợp lệ.");
       }
-
-      setProducts(productList);
-      setTotalPages(newTotalPages);
-      console.log(
-        "Fetched products count:",
-        productList.length,
-        "Current Page:",
-        currentPage,
-        "Total Pages:",
-        newTotalPages
-      );
     } catch (err) {
       console.error("Error fetching products:", err);
       setError(err.message || "Lỗi tải sản phẩm.");
       setProducts([]);
       setTotalPages(1);
+      setCurrentCategory(null);
     } finally {
       setLoading(false);
     }
@@ -224,16 +210,13 @@ const ProductManagement = () => {
         {
           method: "PATCH",
           credentials: "include",
-          headers: {
-            Authorization: `Bearer ${userData.accessToken}`,
-          },
         }
       );
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
           `Lỗi xóa sản phẩm: ${response.status} - ${
-            errorData?.message || response.statusText
+            errorData[0]?.message || response.statusText
           }`
         );
       }
@@ -284,7 +267,6 @@ const ProductManagement = () => {
           credentials: "include",
           headers: {
             "Content-Type": "application/json",
-            // Authorization: `Bearer ${userData.accessToken}`,
           },
           body: JSON.stringify({ status: newStatus }),
         }
@@ -293,7 +275,7 @@ const ProductManagement = () => {
         const errorData = await response.json();
         throw new Error(
           `Lỗi thay đổi trạng thái: ${response.status} - ${
-            errorData?.message || response.statusText
+            errorData[0]?.message || response.statusText
           }`
         );
       }
@@ -340,7 +322,6 @@ const ProductManagement = () => {
           credentials: "include",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${userData.accessToken}`,
           },
           body: JSON.stringify({
             ids: idsToChange,
@@ -353,7 +334,7 @@ const ProductManagement = () => {
         const errorData = await response.json();
         throw new Error(
           `Lỗi thay đổi trạng thái hàng loạt: ${response.status} - ${
-            errorData?.message || response.statusText
+            errorData[0]?.message || response.statusText
           }`
         );
       }
@@ -391,6 +372,11 @@ const ProductManagement = () => {
   return (
     <div className="p-4 md:p-6">
       <h1 className="text-3xl font-bold text-primary">📦 Quản lý sản phẩm</h1>
+      {currentCategory && (
+        <h2 className="text-xl mt-2 text-secondary">
+          Danh mục: {currentCategory.title}
+        </h2>
+      )}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 mt-6 gap-4">
         <div className="flex flex-col md:flex-row flex-wrap gap-2 w-full md:w-auto">
           {/* Category Filter */}

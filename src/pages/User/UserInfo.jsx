@@ -4,7 +4,7 @@ import Cookies from "js-cookie";
 import Header from "../../components/Layout/Header/Header";
 import MyOrder from "./MyOrder";
 import MyAddress from "./MyAddress";
-import { User, Lock, ShoppingBag, MapPin } from "lucide-react";
+import { User, Lock, ShoppingBag, MapPin, X } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 const UserInfo = () => {
@@ -23,6 +23,9 @@ const UserInfo = () => {
     newPassword: "",
     confirmPassword: "",
   });
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [isUrlMode, setIsUrlMode] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -67,6 +70,8 @@ const UserInfo = () => {
             position: data.position,
             status: data.status,
           });
+          setPreviewUrl(data.avatar || null);
+          setIsUrlMode(!!data.avatar); // Set URL mode if avatar exists
         }
       })
       .catch((err) => {
@@ -79,7 +84,62 @@ const UserInfo = () => {
     setActiveTab(getActiveTab());
   }, [location.pathname]);
 
+  // Handle File Selection
+  const handleFileChange = (e) => {
+    if (!editing) return;
+    const file = e.target.files[0];
+    if (!file) {
+      setSelectedFile(null);
+      setPreviewUrl(formData.avatar || null);
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      showToast("Vui lòng chọn file hình ảnh!", "error");
+      setSelectedFile(null);
+      setPreviewUrl(formData.avatar || null);
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      showToast("File quá lớn, vui lòng chọn file dưới 10MB!", "error");
+      setSelectedFile(null);
+      setPreviewUrl(formData.avatar || null);
+      return;
+    }
+
+    setSelectedFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
+    setFormData((prev) => ({ ...prev, avatar: "" })); // Clear avatar URL
+  };
+
+  // Handle URL Input Change
+  const handleUrlChange = (e) => {
+    if (!editing) return;
+    const { value } = e.target;
+    setFormData((prev) => ({ ...prev, avatar: value }));
+    setPreviewUrl(value || null);
+    setSelectedFile(null); // Clear selected file
+  };
+
+  // Handle Remove Image
+  const handleRemoveImage = () => {
+    if (!editing) return;
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setFormData((prev) => ({ ...prev, avatar: "" }));
+  };
+
+  // Toggle Input Mode
+  const toggleInputMode = () => {
+    if (!editing) return;
+    setIsUrlMode(!isUrlMode);
+    setSelectedFile(null);
+    setPreviewUrl(formData.avatar || null);
+  };
+
   const handleFormChange = (e) => {
+    if (!editing) return;
     setFormData((prev) => ({
       ...prev,
       [e.target.name]: e.target.value,
@@ -93,10 +153,42 @@ const UserInfo = () => {
     }));
   };
 
-  const handleSaveInfo = () => {
+  const handleSaveInfo = async () => {
     const token = getAuthToken();
+    let avatarUrl = formData.avatar;
+
+    // Upload file to Cloudinary if a new file is selected
+    if (selectedFile) {
+      const formDataUpload = new FormData();
+      formDataUpload.append("file", selectedFile);
+      formDataUpload.append("upload_preset", "cmzggqqw");
+      formDataUpload.append("folder", "user_avatars");
+
+      try {
+        const res = await fetch(
+          "https://api.cloudinary.com/v1_1/dgxjlc8zt/image/upload",
+          {
+            method: "POST",
+            body: formDataUpload,
+          }
+        );
+
+        if (!res.ok) {
+          throw new Error(`Upload thất bại: ${res.status}`);
+        }
+
+        const data = await res.json();
+        avatarUrl = data.secure_url;
+      } catch (error) {
+        showToast(`Upload ảnh thất bại: ${error.message}`, "error");
+        setEditing(false);
+        return;
+      }
+    }
+
     const payload = {
       ...formData,
+      avatar: avatarUrl,
       passWord: "",
       position: String(formData.position || "1"),
       status: formData.status || "active",
@@ -110,6 +202,7 @@ const UserInfo = () => {
         showToast("Cập nhật thành công!", "success");
         setUser(res.data.data);
         setEditing(false);
+        setPreviewUrl(avatarUrl || null);
       })
       .catch((err) => {
         const msg =
@@ -308,7 +401,11 @@ const UserInfo = () => {
                 <div className="avatar">
                   <div className="w-24 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
                     <img
-                      src={user?.avatar || "https://i.pravatar.cc/150"}
+                      src={
+                        previewUrl ||
+                        user?.avatar ||
+                        "https://i.pravatar.cc/150"
+                      }
                       onError={(e) => {
                         e.target.src = "https://i.pravatar.cc/150";
                       }}
@@ -375,11 +472,14 @@ const UserInfo = () => {
               {activeTab === "info" ? (
                 <div className="flex flex-col md:grid md:grid-cols-2 gap-4">
                   {[
-                    { label: "Họ tên", name: "fullName" },
-                    { label: "Email", name: "email" },
-                    { label: "Số điện thoại", name: "phoneNumber" },
-                    { label: "Ảnh đại diện (URL)", name: "avatar" },
-                  ].map(({ label, name, type = "text" }) => (
+                    { label: "Họ tên", name: "fullName", type: "text" },
+                    { label: "Email", name: "email", type: "email" },
+                    {
+                      label: "Số điện thoại",
+                      name: "phoneNumber",
+                      type: "text",
+                    },
+                  ].map(({ label, name, type }) => (
                     <div className="form-control" key={name}>
                       <label className="label">{label}</label>
                       <input
@@ -392,6 +492,58 @@ const UserInfo = () => {
                       />
                     </div>
                   ))}
+                  <div className="form-control">
+                    <label className="label">Ảnh đại diện</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type={isUrlMode ? "url" : "file"}
+                        accept={isUrlMode ? undefined : "image/*"}
+                        name="avatar"
+                        value={isUrlMode ? formData.avatar : undefined}
+                        onChange={
+                          isUrlMode ? handleUrlChange : handleFileChange
+                        }
+                        placeholder={
+                          isUrlMode
+                            ? "Nhập link ảnh (https://example.com/image.jpg)"
+                            : undefined
+                        }
+                        className={
+                          isUrlMode
+                            ? "input input-bordered w-full"
+                            : "file-input file-input-bordered w-full"
+                        }
+                        disabled={!editing}
+                      />
+                      <button
+                        type="button"
+                        onClick={toggleInputMode}
+                        className="btn btn-sm btn-outline"
+                        disabled={!editing}
+                      >
+                        {isUrlMode ? "Chọn File" : "Nhập URL"}
+                      </button>
+                    </div>
+                    {previewUrl && (
+                      <div className="relative mt-2 w-24 h-24">
+                        <img
+                          src={previewUrl}
+                          alt="Avatar Preview"
+                          className="w-24 h-24 object-cover rounded border"
+                          onError={(e) => (e.target.style.display = "none")}
+                          onLoad={(e) => (e.target.style.display = "block")}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleRemoveImage}
+                          className="absolute top-0 right-0 btn btn-xs btn-circle btn-error"
+                          disabled={!editing}
+                        >
+                          <X />
+                        </button>
+                      </div>
+                    )}
+                  </div>
 
                   <div className="col-span-2 flex justify-end space-x-4 mt-4">
                     {editing ? (
@@ -403,7 +555,20 @@ const UserInfo = () => {
                           Lưu
                         </button>
                         <button
-                          onClick={() => setEditing(false)}
+                          onClick={() => {
+                            setEditing(false);
+                            setFormData({
+                              fullName: user.fullName,
+                              email: user.email,
+                              phoneNumber: user.phoneNumber,
+                              avatar: user.avatar,
+                              position: user.position,
+                              status: user.status,
+                            });
+                            setPreviewUrl(user.avatar || null);
+                            setSelectedFile(null);
+                            setIsUrlMode(!!user.avatar);
+                          }}
                           className="btn btn-outline"
                         >
                           Huỷ
