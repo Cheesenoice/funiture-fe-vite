@@ -45,7 +45,7 @@ export default function ProductList({
           params.isnew = true;
         }
         if (filter === "search" && keyword) {
-          params.keyword = keyword;
+          params.keyword = keyword; // Gửi keyword trực tiếp, không giải mã
         }
 
         const response = await productService.getProducts(params);

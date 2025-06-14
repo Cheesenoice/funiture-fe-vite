@@ -8,6 +8,7 @@ const OrderManagement = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [searchTerm, setSearchTerm] = useState(""); // New state for search term
 
   // Fetch all orders
   const fetchOrders = async () => {
@@ -83,17 +84,28 @@ const OrderManagement = () => {
     );
   };
 
-  // Filter orders by latest status
+  // Filter orders by status and search term
   useEffect(() => {
-    if (statusFilter === "all") {
-      setFilteredOrders(orders);
-    } else {
-      const filtered = orders.filter(
+    let filtered = orders;
+
+    // Filter by status
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(
         (order) => getLatestStatus(order) === statusFilter
       );
-      setFilteredOrders(filtered);
     }
-  }, [statusFilter, orders]);
+
+    // Filter by search term (customer name)
+    if (searchTerm.trim()) {
+      filtered = filtered.filter((order) =>
+        order.user_infor.name
+          .toLowerCase()
+          .includes(searchTerm.trim().toLowerCase())
+      );
+    }
+
+    setFilteredOrders(filtered);
+  }, [statusFilter, searchTerm, orders]);
 
   // Fetch orders on mount
   useEffect(() => {
@@ -137,6 +149,22 @@ const OrderManagement = () => {
       {/* Orders Table */}
       {!loading && (
         <div>
+          {/* Search by Customer Name */}
+          <div className="mb-6">
+            <label className="label">
+              <span className="label-text font-semibold">
+                Tìm kiếm theo tên khách hàng
+              </span>
+            </label>
+            <input
+              type="text"
+              className="input input-bordered w-full max-w-xs"
+              placeholder="Nhập tên khách hàng..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
           {/* Filter by Status */}
           <div className="mb-6">
             <label className="label">
@@ -194,7 +222,7 @@ const OrderManagement = () => {
                             ? "badge-success"
                             : getLatestStatus(order) === "Canceled"
                             ? "badge-error"
-                            : "badge-error" // Use badge-error for Canceled by user or another class if preferred
+                            : "badge-error"
                         } badge-md`}
                       >
                         {getLatestStatus(order) === "Receiving orders"

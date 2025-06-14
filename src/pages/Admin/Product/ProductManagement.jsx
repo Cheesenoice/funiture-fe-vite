@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { FaEdit, FaTrashAlt, FaPlus } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
-import { fetchCategories } from "./fetchCategories";
+import SearchFilter from "./SearchFilter";
 
 // --- Currency Formatter ---
 const formatCurrency = (amount) => {
@@ -20,15 +20,7 @@ const ProductManagement = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // Category State
-  const [allCategories, setAllCategories] = useState([]);
-  const [selectedCategorySlug, setSelectedCategorySlug] = useState("");
-  const [categoryError, setCategoryError] = useState(null);
   const [currentCategory, setCurrentCategory] = useState(null);
-
-  // Filtering State
-  const [statusFilter, setStatusFilter] = useState("all");
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -42,21 +34,13 @@ const ProductManagement = () => {
   const [confirmStatusChange, setConfirmStatusChange] = useState(null);
   const [confirmBulkStatus, setConfirmBulkStatus] = useState(null);
   const [productToDeleteId, setProductToDeleteId] = useState(null);
-  // ---------------------------------
+
+  // Filter States (passed from SearchFilter)
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategorySlug, setSelectedCategorySlug] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const navigate = useNavigate();
-
-  // --- Fetch Categories ---
-  const fetchCategoriesData = useCallback(async () => {
-    setCategoryError(null);
-    try {
-      const categories = await fetchCategories();
-      setAllCategories(categories);
-    } catch (e) {
-      setCategoryError(`Lỗi khi tải danh mục: ${e.message}`);
-      setAllCategories([]);
-    }
-  }, []);
 
   // --- Fetch Products ---
   const fetchProducts = useCallback(async () => {
@@ -70,14 +54,13 @@ const ProductManagement = () => {
         throw new Error("No access token found. Please log in.");
       }
 
-      // Build URL based on whether a category slug is selected
       const queryParams = new URLSearchParams();
       queryParams.append("page", currentPage);
       queryParams.append("limit", itemsPerPage);
 
       const baseUrl = selectedCategorySlug
-        ? `http://localhost:3000/api/v1/products/${selectedCategorySlug}`
-        : "http://localhost:3000/api/v1/products/";
+        ? `http://localhost:3000/api/v1/product/${selectedCategorySlug}`
+        : "http://localhost:3000/api/v1/product/";
       const url = `${baseUrl}?${queryParams.toString()}`;
 
       console.log("Fetching products from URL:", url);
@@ -101,7 +84,6 @@ const ProductManagement = () => {
       const result = await response.json();
       console.log("Raw API product response:", JSON.stringify(result, null, 2));
 
-      // Handle unified response format
       if (
         Array.isArray(result) &&
         result.length > 0 &&
@@ -136,7 +118,7 @@ const ProductManagement = () => {
     }
   }, [currentPage, itemsPerPage, selectedCategorySlug]);
 
-  // --- Frontend Filtering for Status ---
+  // --- Frontend Filtering for Status and Search ---
   const filteredProducts = useMemo(() => {
     let filtered = products;
     if (statusFilter === "active") {
@@ -144,14 +126,15 @@ const ProductManagement = () => {
     } else if (statusFilter === "inactive") {
       filtered = filtered.filter((p) => p.status === "inactive");
     }
+    if (searchQuery.trim()) {
+      filtered = filtered.filter((p) =>
+        p.title?.toLowerCase().includes(searchQuery.trim().toLowerCase())
+      );
+    }
     return filtered;
-  }, [products, statusFilter]);
+  }, [products, statusFilter, searchQuery]);
 
   // --- Effects ---
-  useEffect(() => {
-    fetchCategoriesData();
-  }, [fetchCategoriesData]);
-
   useEffect(() => {
     fetchProducts();
     setSelectedProductIds([]);
@@ -159,17 +142,9 @@ const ProductManagement = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedCategorySlug, statusFilter]);
+  }, [selectedCategorySlug, statusFilter, searchQuery]);
 
-  // --- Filter/Pagination Handlers ---
-  const handleCategoryChange = (event) => {
-    setSelectedCategorySlug(event.target.value);
-  };
-
-  const handleStatusFilterChange = (status) => {
-    setStatusFilter(status);
-  };
-
+  // --- Pagination Handlers ---
   const handlePageChange = (page) => {
     if (page > 0 && page <= totalPages && !loading) {
       setCurrentPage(page);
@@ -377,73 +352,17 @@ const ProductManagement = () => {
           Danh mục: {currentCategory.title}
         </h2>
       )}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 mt-6 gap-4">
-        <div className="flex flex-col md:flex-row flex-wrap gap-2 w-full md:w-auto">
-          {/* Category Filter */}
-          <div className="form-control w-full md:w-auto md:min-w-[250px]">
-            <label className="label pt-0">
-              <span className="label-text">Lọc theo danh mục</span>
-            </label>
-            <select
-              className={`select select-bordered w-full ${
-                categoryError || loading || allCategories.length === 0
-                  ? "select-disabled opacity-70"
-                  : ""
-              }`}
-              value={selectedCategorySlug}
-              onChange={handleCategoryChange}
-              disabled={
-                loading || !!categoryError || allCategories.length === 0
-              }
-            >
-              <option value="">-- Tất cả danh mục --</option>
-              {allCategories.map((category) => (
-                <option key={category.id} value={category.slug}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-            {categoryError && (
-              <span className="text-error text-xs mt-1">{categoryError}</span>
-            )}
-            {!categoryError && allCategories.length === 0 && !loading && (
-              <span className="text-warning text-xs mt-1">
-                Không có danh mục để lọc.
-              </span>
-            )}
-          </div>
-
-          {/* Status Filter */}
-          <div className="form-control w-full md:w-auto md:min-w-[180px]">
-            <label className="label pt-0">
-              <span className="label-text">Lọc theo trạng thái</span>
-            </label>
-            <select
-              className="select select-bordered w-full"
-              value={statusFilter}
-              onChange={(e) => handleStatusFilterChange(e.target.value)}
-              disabled={loading}
-            >
-              <option value="all">-- Tất cả trạng thái --</option>
-              <option value="active">Hoạt động</option>
-              <option value="inactive">Ngừng hoạt động</option>
-            </select>
-          </div>
-
-          {/* Add Product Button */}
-          <div className="form-control w-full md:w-auto self-end">
-            <label className="label pt-0 hidden md:block">
-              <span className="label-text"> </span>
-            </label>
-            <button
-              className="btn btn-primary w-full md:w-auto"
-              onClick={handleAdd}
-              disabled={loading}
-            >
-              <FaPlus className="mr-2" /> Thêm sản phẩm
-            </button>
-          </div>
-        </div>
+      <div className="mb-6 mt-6">
+        <SearchFilter
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          selectedCategorySlug={selectedCategorySlug}
+          setSelectedCategorySlug={setSelectedCategorySlug}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+          loading={loading}
+          onAddProduct={handleAdd}
+        />
       </div>
 
       {/* Bulk Actions Bar */}
@@ -541,8 +460,10 @@ const ProductManagement = () => {
               {filteredProducts.length === 0 && !loading && (
                 <tr>
                   <td colSpan="8" className="text-center py-4">
-                    {selectedCategorySlug || statusFilter !== "all"
-                      ? "Không tìm thấy sản phẩm phù hợp với bộ lọc."
+                    {selectedCategorySlug ||
+                    statusFilter !== "all" ||
+                    searchQuery
+                      ? "Không tìm thấy sản phẩm phù hợp với bộ lọc hoặc từ khóa tìm kiếm."
                       : "Không có sản phẩm nào."}
                   </td>
                 </tr>

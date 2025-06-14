@@ -1,6 +1,7 @@
 import { useParams } from "react-router-dom";
 import ProductList from "../../components/Sections/ProductList";
 import Header from "../../components/Layout/Header/Header";
+import SearchAiModal from "../../components/Common/SearchAi";
 
 export default function ProductCollection({ filter = "all" }) {
   const { categoryDescription, keyword } = useParams();
@@ -19,7 +20,9 @@ export default function ProductCollection({ filter = "all" }) {
       productListProps = { filter, categoryDescription, limit: 12 };
       break;
     case "search":
-      heading = `Search Results for "${keyword || "All Products"}"`;
+      heading = keyword
+        ? `Search Results for "${decodeURIComponent(keyword)}"`
+        : "Search Results";
       productListProps = { filter, keyword, limit: 12 };
       break;
     default:
@@ -37,6 +40,9 @@ export default function ProductCollection({ filter = "all" }) {
           </h2>
         )}
         <ProductList {...productListProps} />
+      </div>
+      <div className="fixed bottom-6 right-6 z-50">
+        <SearchAiModal />
       </div>
     </div>
   );

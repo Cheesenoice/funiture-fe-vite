@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Search, ShoppingCart, Heart } from "lucide-react";
 
@@ -7,6 +7,8 @@ const HeaderMain = () => {
   const [cartCount, setCartCount] = useState(
     parseInt(localStorage.getItem("cartCount") || "0", 10)
   );
+  const [searchQuery, setSearchQuery] = useState("");
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -31,9 +33,16 @@ const HeaderMain = () => {
       setCartCount(count);
       localStorage.setItem("cartCount", count);
     } catch (err) {
-      console.error("Lỗi lấy số lượng giỏ hàng:", err);
       setCartCount(0);
       localStorage.setItem("cartCount", 0);
+    }
+  };
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/productscollection/search/${encodeURIComponent(searchQuery)}`);
+      setSearchQuery("");
     }
   };
 
@@ -59,16 +68,24 @@ const HeaderMain = () => {
       </div>
 
       <div className="flex items-center space-x-4 flex-grow justify-end">
-        <div className="relative flex-grow max-w-[200px]">
+        <form
+          onSubmit={handleSearch}
+          className="relative flex-grow max-w-[200px]"
+        >
           <input
             type="text"
             placeholder="Tìm kiếm..."
             className="input input-bordered bg-gray-100 w-full text-black text-sm py-1 h-8"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
           />
-          <button className="absolute right-2 top-1/2 transform -translate-y-1/2 cursor-pointer">
+          <button
+            type="submit"
+            className="absolute right-2 top-1/2 transform -translate-y-1/2 cursor-pointer"
+          >
             <Search className="w-4 h-4 text-gray-500" />
           </button>
-        </div>
+        </form>
 
         <div className="relative flex-shrink-0">
           <button className="cursor-pointer">

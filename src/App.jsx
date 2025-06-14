@@ -66,7 +66,7 @@ function App() {
           />
           <Route
             path="/productscollection/search/:keyword"
-            element={<ProductCollection />}
+            element={<ProductCollection filter="search" />}
           />
           <Route path="/blog/:slug" element={<BlogDetail />} />
 
